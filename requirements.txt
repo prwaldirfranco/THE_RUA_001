@@ -1,0 +1,26 @@
+# --- Núcleo principal ---
+streamlit>=1.38.0
+pandas>=2.2.0
+numpy>=1.26.0
+
+# --- Impressão local (Windows / POS-80) ---
+pywin32>=306
+
+# --- Impressão térmica (opcional - impressoras Bluetooth/USB ESC/POS) ---
+python-escpos>=3.1
+
+# --- Manipulação de datas, horas e relatórios ---
+python-dateutil>=2.8.2
+
+# --- Visualização / dashboards ---
+plotly>=5.22.0
+matplotlib>=3.9.0
+
+# --- Utilitários ---
+requests>=2.31.0
+
+# --- Compatibilidade e segurança ---
+pillow>=10.0.0
+
+# --- (Opcional) para exportar relatórios PDF ---
+reportlab>=4.0.8
