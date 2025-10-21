@@ -2,7 +2,6 @@ import streamlit as st
 import json
 import os
 from datetime import datetime
-import win32ui
 
 # ---------------------------------------------------
 # Segurança — exige login antes de acessar a página
@@ -306,4 +305,5 @@ for pedido in pedidos:
 
         if st.button("🖨️ Imprimir", key=f"print_{pedido['id']}"):
             imprimir_pedido(pedido)
+
 
