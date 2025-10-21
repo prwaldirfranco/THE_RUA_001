@@ -1,0 +1,22 @@
+[
+  {
+    "usuario": "admin",
+    "senha": "admin",
+    "tipo": "admin"
+  },
+  {
+    "usuario": "caixa",
+    "senha": "1234",
+    "tipo": "caixa"
+  },
+  {
+    "usuario": "cozinha",
+    "senha": "1234",
+    "tipo": "cozinha"
+  },
+  {
+    "usuario": "entregador",
+    "senha": "1234",
+    "tipo": "entregador"
+  }
+]

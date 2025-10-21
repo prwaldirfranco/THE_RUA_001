@@ -1,0 +1,94 @@
+[
+    {
+        "id": "1761055535",
+        "codigo_rastreio": "5743",
+        "nome": "Waldir Franco",
+        "telefone": "22992394905",
+        "tipo_pedido": "Entrega",
+        "endereco": "Lote Nova Canaã\nCasa 01",
+        "pagamento": "Pix",
+        "troco_para": "",
+        "comprovante": "uploads\\1761055535_01.jpg",
+        "observacoes": "",
+        "produtos": [
+            {
+                "id": 1,
+                "nome": "X-Burguer",
+                "quantidade": 2,
+                "preco": 15.0
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-21 11:05:35",
+        "total": 30.0
+    },
+    {
+        "id": "1761055906",
+        "codigo_rastreio": "1481",
+        "nome": "Waldir Franco Mesquita Junior",
+        "telefone": "22992394905",
+        "tipo_pedido": "Entrega",
+        "endereco": "Lote Nova Canaã\nCasa 01",
+        "pagamento": "Cartão",
+        "troco_para": "",
+        "comprovante": "",
+        "observacoes": "ok",
+        "produtos": [
+            {
+                "id": 2,
+                "nome": "X-Bacon",
+                "quantidade": 6,
+                "preco": 18.0
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-21 11:11:46",
+        "total": 108.0
+    },
+    {
+        "id": "1761056479",
+        "codigo_rastreio": "7311",
+        "nome": "Waldir Franco Mesquita Junior",
+        "telefone": "22992394905",
+        "tipo_pedido": "Entrega",
+        "endereco": "",
+        "pagamento": "Dinheiro",
+        "troco_para": "50",
+        "comprovante": "",
+        "observacoes": "somente carne",
+        "produtos": [
+            {
+                "id": 3,
+                "nome": "Batata Frita",
+                "quantidade": 5,
+                "preco": 8.0
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-21 11:21:19",
+        "total": 40.0
+    },
+    {
+        "id": "1761056768",
+        "codigo_rastreio": "2768",
+        "nome": "Gelson S De Souza",
+        "telefone": "22992394905",
+        "tipo_pedido": "Entrega",
+        "endereco": "Lote Nova Canaã\nCasa 01",
+        "pagamento": "Dinheiro",
+        "troco_para": "100",
+        "comprovante": "",
+        "observacoes": "somente carne",
+        "produtos": [
+            {
+                "id": 1,
+                "nome": "X-Burguer",
+                "quantidade": 4,
+                "preco": 15.0
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-21 11:26:08",
+        "total": 60.0
+    }
+]

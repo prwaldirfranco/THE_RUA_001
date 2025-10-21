@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "nome": "X-Burguer",
+    "descricao": "Pão, carne, queijo e salada",
+    "preco": 15.0,
+    "imagem": "https://i.imgur.com/X5gC1mG.png"
+  },
+  {
+    "id": 2,
+    "nome": "X-Bacon",
+    "descricao": "Com bacon crocante e queijo cheddar",
+    "preco": 18.0,
+    "imagem": "https://i.imgur.com/Zjv6V7J.png"
+  },
+  {
+    "id": 3,
+    "nome": "Batata Frita",
+    "descricao": "Porção de batatas crocantes",
+    "preco": 8.0,
+    "imagem": "https://i.imgur.com/2v9Z3oF.png"
+  },
+  {
+    "id": 4,
+    "nome": "Refrigerante Lata",
+    "descricao": "Coca-Cola, Guaraná ou Fanta",
+    "preco": 6.0,
+    "imagem": "https://i.imgur.com/2snzXvG.png"
+  }
+]
