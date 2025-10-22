@@ -16,6 +16,7 @@ if "logado" not in st.session_state or not st.session_state["logado"]:
 # ---------------------------------------------------
 DATA_FILE = "pedidos.json"
 CAIXA_FILE = "caixa.json"
+IMPRESSORAS_FILE = "impressoras.json"
 
 # ---------------------------------------------------
 # Funções utilitárias
@@ -61,9 +62,9 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     impressora_config = None
 
     # Tenta carregar impressora configurada manualmente
-    if os.path.exists("impressoras.json"):
+    if os.path.exists(IMPRESSORAS_FILE):
         try:
-            with open("impressoras.json", "r", encoding="utf-8") as f:
+            with open(IMPRESSORAS_FILE, "r", encoding="utf-8") as f:
                 impressoras = json.load(f)
                 if impressoras:
                     impressora_config = impressoras[0].get("endereco") or impressoras[0].get("nome")
@@ -183,6 +184,15 @@ def gerar_relatorio_caixa():
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
 st.caption("Gerencie pedidos, vendas no balcão e o fechamento do caixa.")
+
+# --- Teste de impressão (novo recurso) ---
+st.sidebar.subheader("🖨️ Impressora Local")
+if st.sidebar.button("🧾 Testar Impressão"):
+    imprimir_texto("""
+====== TESTE DE IMPRESSÃO ======
+Impressora configurada corretamente!
+==============================
+""", titulo="Teste de Impressão")
 
 # --- Caixa aberto/fechado ---
 st.sidebar.header("🧾 Controle de Caixa")
