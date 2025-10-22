@@ -1,8 +1,8 @@
 import streamlit as st
 import json
 import os
+import platform
 from datetime import datetime
-import win32print, win32ui
 
 CONFIG_FILE = "impressoras.json"
 
@@ -128,3 +128,4 @@ if "edit_imp" in st.session_state:
             del st.session_state["edit_imp"]
             st.success("Impressora atualizada!")
             st.rerun()
+
