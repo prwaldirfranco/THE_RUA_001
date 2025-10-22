@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import os
+import platform
 from datetime import datetime
 
 # ---------------------------------------------------
@@ -48,37 +49,62 @@ def atualizar_status(pedido_id, novo_status):
     return False
 
 # ---------------------------------------------------
-# Impressão via Win32 (local)
+# Impressão automática (Windows ou nuvem)
 # ---------------------------------------------------
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
-    try:
-        printer_name = win32print.GetDefaultPrinter()
-        hDC = win32ui.CreateDC()
-        hDC.CreatePrinterDC(printer_name)
-        hDC.StartDoc(titulo)
-        hDC.StartPage()
+    """
+    Impressão automática:
+      - Windows: imprime na impressora padrão ou configurada.
+      - Nuvem (Linux): mostra aviso.
+    """
+    sistema = platform.system()
+    impressora_config = None
 
-        # Define fonte tamanho 18 (altura ajustada)
-        font = win32ui.CreateFont({
-            "name": "Arial",
-            "height": -25,  # equivalente a tamanho 18
-            "weight": 400,
-        })
-        hDC.SelectObject(font)
+    # Tenta carregar impressora configurada manualmente
+    if os.path.exists("impressoras.json"):
+        try:
+            with open("impressoras.json", "r", encoding="utf-8") as f:
+                impressoras = json.load(f)
+                if impressoras:
+                    impressora_config = impressoras[0].get("endereco") or impressoras[0].get("nome")
+        except Exception:
+            impressora_config = None
 
-        # Posição e espaçamento otimizados
-        x, y = 20, 30
-        for linha in texto.splitlines():
-            hDC.TextOut(x, y, linha.strip())
-            y += 50  # espaçamento entre linhas reduzido
+    # Impressão local (Windows)
+    if sistema == "Windows":
+        try:
+            import win32print
+            import win32ui
 
-        hDC.EndPage()
-        hDC.EndDoc()
-        hDC.DeleteDC()
-        st.success("🖨️ Impressão enviada para POS-80 (local).")
+            printer_name = impressora_config or win32print.GetDefaultPrinter()
+            hDC = win32ui.CreateDC()
+            hDC.CreatePrinterDC(printer_name)
+            hDC.StartDoc(titulo)
+            hDC.StartPage()
 
-    except Exception as e:
-        st.error(f"Erro ao imprimir: {e}")
+            # Fonte tamanho 18, espaçamento compacto
+            font = win32ui.CreateFont({
+                "name": "Arial",
+                "height": 18 * -1,
+                "weight": 400
+            })
+            hDC.SelectObject(font)
+
+            y = 20
+            for linha in texto.splitlines():
+                hDC.TextOut(20, y, linha.strip())
+                y += 40  # menor espaçamento
+
+            hDC.EndPage()
+            hDC.EndDoc()
+            hDC.DeleteDC()
+            st.success(f"🖨️ Impresso com sucesso na impressora: {printer_name}")
+
+        except Exception as e:
+            st.error(f"❌ Erro ao imprimir: {e}")
+
+    else:
+        st.warning("⚠️ Impressão local desativada neste servidor (modo nuvem).")
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -110,14 +136,12 @@ Tipo: {pedido['tipo_pedido']}
 # ---------------------------------------------------
 def carregar_caixa():
     if not os.path.exists(CAIXA_FILE):
-        return {"aberto": False, "aberto_em": None, "fechado_em": None, "valor_inicial": 0.0}
+        return {"aberto": False, "valor_inicial": 0.0}
     with open(CAIXA_FILE, "r", encoding="utf-8") as f:
         try:
             data = json.load(f)
             if not isinstance(data, dict):
                 data = {"aberto": False, "valor_inicial": 0.0}
-            if "valor_inicial" not in data:
-                data["valor_inicial"] = 0.0
             return data
         except:
             return {"aberto": False, "valor_inicial": 0.0}
@@ -154,13 +178,13 @@ def gerar_relatorio_caixa():
     return {"total": total_geral, "pagamentos": por_pagamento, "qtd": len(pedidos)}
 
 # ---------------------------------------------------
-# Interface principal
+# Interface
 # ---------------------------------------------------
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
 st.caption("Gerencie pedidos, vendas no balcão e o fechamento do caixa.")
 
-# Abertura / Fechamento
+# --- Caixa aberto/fechado ---
 st.sidebar.header("🧾 Controle de Caixa")
 caixa = carregar_caixa()
 
@@ -200,7 +224,7 @@ Por pagamento:
         st.rerun()
 
 # ---------------------------------------------------
-# Venda no Balcão (recolhido)
+# Venda no Balcão
 # ---------------------------------------------------
 st.markdown("---")
 with st.expander("🧾 Registrar Pedido de Balcão"):
@@ -212,9 +236,7 @@ with st.expander("🧾 Registrar Pedido de Balcão"):
         pagamento = st.selectbox("Forma de pagamento", ["Dinheiro", "Pix", "Cartão"])
         total = st.number_input("Valor Total (R$)", min_value=0.0, step=1.0)
         obs = st.text_area("Observações")
-        enviar = st.form_submit_button("💾 Registrar Pedido")
-
-        if enviar:
+        if st.form_submit_button("💾 Registrar Pedido"):
             if not nome or total <= 0:
                 st.error("Preencha nome e valor total.")
             else:
@@ -305,5 +327,3 @@ for pedido in pedidos:
 
         if st.button("🖨️ Imprimir", key=f"print_{pedido['id']}"):
             imprimir_pedido(pedido)
-
-
