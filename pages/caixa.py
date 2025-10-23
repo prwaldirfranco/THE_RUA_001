@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 import platform
+import mimetypes
 import urllib.parse
 from datetime import datetime
 
@@ -236,9 +237,10 @@ def gerar_relatorio_caixa():
 # ---------------------------------------------------
 # Interface
 # ---------------------------------------------------
+
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
-st.caption("Gerencie pedidos, vendas no balcão e impressão via RawBT ou Windows.")
+st.caption("Gerencie pedidos, vendas no balcão, comprovantes e impressão via RawBT ou Windows.")
 
 # --- Teste de impressão ---
 st.sidebar.subheader("🖨️ Impressora Local")
@@ -319,7 +321,7 @@ with st.expander("🧾 Registrar Pedido de Balcão"):
                 pedidos.append(novo)
                 salvar_pedidos(pedidos)
                 imprimir_pedido(novo)
-                st.success("✅ Pedido registrado e impresso!")
+                st.success("✅ Pedido de balcão registrado e impresso!")
                 st.rerun()
 
 # ---------------------------------------------------
@@ -351,10 +353,34 @@ for pedido in pedidos:
         if pedido.get("observacoes"):
             st.caption(f"✏️ {pedido['observacoes']}")
 
+        # 💳 Mostra comprovante PIX se houver
+        if pedido.get("pagamento") == "Pix":
+            st.markdown("💳 **Pagamento via PIX**")
+            if pedido.get("comprovante_pix"):
+                arquivo = pedido["comprovante_pix"]
+                ext = os.path.splitext(arquivo)[1].lower()
+                mime_type = mimetypes.guess_type(arquivo)[0] or "application/octet-stream"
+
+                if ext in [".jpg", ".jpeg", ".png"]:
+                    st.image(arquivo, caption="📄 Comprovante PIX", use_container_width=True)
+
+                try:
+                    with open(arquivo, "rb") as f:
+                        st.download_button(
+                            label=f"⬇️ Baixar Comprovante ({os.path.basename(arquivo)})",
+                            data=f,
+                            file_name=os.path.basename(arquivo),
+                            mime=mime_type,
+                        )
+                except Exception:
+                    st.error("❌ Erro ao carregar comprovante PIX. Verifique o caminho do arquivo.")
+            else:
+                st.info("Aguardando envio do comprovante PIX pelo cliente...")
+
     with col2:
         st.markdown("#### Itens")
         for item in pedido.get("produtos", []):
-            st.markdown(f"- {item.get('quantidade',0)}x {item.get('nome','')} (R$ {item.get('preco',0):.2f})")
+            st.markdown(f"- {item.get('quantidade', 0)}x {item.get('nome', '')} (R$ {item.get('preco', 0):.2f})")
 
     with col3:
         st.markdown("#### Ações")
