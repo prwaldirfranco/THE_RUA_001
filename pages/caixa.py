@@ -4,7 +4,12 @@ import os
 import platform
 import urllib.parse
 from datetime import datetime
-from streamlit_javascript import st_javascript
+
+# try import st_javascript but don't crash if not available
+try:
+    from streamlit_javascript import st_javascript
+except Exception:
+    st_javascript = None
 
 # ---------------------------------------------------
 # Segurança — exige login antes de acessar a página
@@ -52,7 +57,7 @@ def atualizar_status(pedido_id, novo_status):
     return False
 
 # ---------------------------------------------------
-# Impressão automática (Windows e Android RawBT)
+# Impressão automática (Windows ou Android/RawBT)
 # ---------------------------------------------------
 def _detect_android_env():
     android_keys = ("ANDROID_BOOTLOGO", "ANDROID_ROOT", "ANDROID_DATA", "ANDROID_ARGUMENT")
@@ -62,7 +67,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     sistema = platform.system()
     impressora_config = None
 
-    # Carrega impressora configurada
+    # Carrega impressora configurada (se existir)
     if os.path.exists(IMPRESSORAS_FILE):
         try:
             with open(IMPRESSORAS_FILE, "r", encoding="utf-8") as f:
@@ -72,7 +77,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         except Exception:
             impressora_config = None
 
-    # --- Caso Windows ---
+    # Caso Windows
     if sistema == "Windows":
         try:
             import win32print, win32ui
@@ -96,8 +101,9 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
             return
 
-    # --- Caso Android (via navegador + RawBT) ---
+    # --- Android / Web ---
     try:
+        from streamlit_javascript import st_javascript
         user_agent = st_javascript("navigator.userAgent.toLowerCase();")
     except Exception:
         user_agent = ""
@@ -106,17 +112,22 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
 
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
+
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
 
-    if is_android:
-        # Mantém botões fixos (sem rerun)
-        st.session_state["imprimindo"] = True
+    # Mantém os botões fixos na tela até que o usuário realmente clique
+    if "imprimindo" not in st.session_state:
+        st.session_state["imprimindo"] = False
+
+    st.session_state["imprimindo"] = True
+
+    with st.container():
         st.info("📱 Pronto para imprimir via RawBT — toque no botão abaixo.")
         st.markdown(
             f"""
             <div style='margin-top:10px;text-align:center;'>
-                <a href="{url_intent}" target="_blank">
+                <a href="{url_intent}" target="_blank" onclick="setTimeout(()=>window.close(),2000)">
                     <button style="background:#007bff;color:white;padding:14px 22px;border:none;border-radius:10px;font-size:18px;">
                         🖨️ Imprimir via RawBT
                     </button>
@@ -131,15 +142,13 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             """,
             unsafe_allow_html=True
         )
-        st.caption("Depois de tocar, o RawBT abrirá com o texto. Toque em **Print** dentro do app para concluir.")
+        st.caption("Depois de tocar, o RawBT deve abrir com o texto. Toque em **Print** no app para concluir.")
         st.download_button(
             "⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
             data=texto_para_imprimir,
             file_name="pedido_the_rua.txt",
             mime="text/plain",
         )
-    else:
-        st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado e abra este sistema pelo navegador (Chrome, Opera ou Edge).")
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -155,14 +164,15 @@ Tipo: {pedido['tipo_pedido']}
 
     texto += "\nItens:\n"
     for item in pedido.get("produtos", []):
-        texto += f"- {item['quantidade']}x {item['nome']} R$ {item['preco'] * item['quantidade']:.2f}\n"
+        texto += f"- {item.get('quantidade', 0)}x {item.get('nome','')} R$ {item.get('preco',0)*item.get('quantidade',0):.2f}\n"
 
-    texto += f"\nTotal: R$ {pedido['total']:.2f}\nPagamento: {pedido['pagamento']}\n"
+    texto += f"\nTotal: R$ {pedido.get('total',0):.2f}\nPagamento: {pedido.get('pagamento','')}\n"
     if pedido.get("troco_para"):
         texto += f"Troco para: {pedido['troco_para']}\n"
     if pedido.get("observacoes"):
         texto += f"Obs: {pedido['observacoes']}\n"
     texto += "\n==============================\n"
+
     imprimir_texto(texto, titulo="Pedido THE RUA")
 
 # ---------------------------------------------------
@@ -300,9 +310,10 @@ with st.expander("🧾 Registrar Pedido de Balcão"):
                 pedidos = carregar_pedidos()
                 pedidos.append(novo)
                 salvar_pedidos(pedidos)
+                # imprimir pedido automaticamente ao registrar no balcão
                 imprimir_pedido(novo)
                 st.success("✅ Pedido de balcão registrado e impresso!")
-                st.stop()
+                st.rerun()
 
 # ---------------------------------------------------
 # Lista de pedidos
@@ -336,7 +347,7 @@ for pedido in pedidos:
     with col2:
         st.markdown("#### Itens")
         for item in pedido.get("produtos", []):
-            st.markdown(f"- {item['quantidade']}x {item['nome']} (R$ {item['preco']:.2f})")
+            st.markdown(f"- {item.get('quantidade',0)}x {item.get('nome','')} (R$ {item.get('preco',0):.2f})")
 
     with col3:
         st.markdown("#### Ações")
@@ -352,6 +363,6 @@ for pedido in pedidos:
             imprimir_pedido(pedido)
 
         if st.button("🗑️ Excluir", key=f"del_{pedido['id']}"):
-            excluir_pedido(pedido)
+            excluir_pedido(pedido['id'])
             st.warning("Pedido excluído.")
             st.rerun()
