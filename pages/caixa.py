@@ -2,6 +2,7 @@ import streamlit as st
 import json
 import os
 import platform
+import urllib.parse
 from datetime import datetime
 
 # ---------------------------------------------------
@@ -50,13 +51,20 @@ def atualizar_status(pedido_id, novo_status):
     return False
 
 # ---------------------------------------------------
-# Impressão automática (Windows ou nuvem)
+# Impressão automática (Windows ou Android/RawBT)
 # ---------------------------------------------------
+def _detect_android_env():
+    """Detecta se estamos rodando em um ambiente Android (WebView/termux/etc)."""
+    # Android geralmente tem essas variáveis de ambiente presentes
+    android_keys = ("ANDROID_BOOTLOGO", "ANDROID_ROOT", "ANDROID_DATA", "ANDROID_ARGUMENT")
+    return any(k in os.environ for k in android_keys)
+
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     """
     Impressão automática:
-      - Windows: imprime na impressora padrão ou configurada.
-      - Nuvem (Linux): mostra aviso.
+      - Windows: imprime na impressora padrão ou configurada via win32.
+      - Android: cria botões/links para enviar para RawBT (intents e esquema rawbt://).
+      - Nuvem/Outros: exibe aviso.
     """
     sistema = platform.system()
     impressora_config = None
@@ -67,11 +75,12 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             with open(IMPRESSORAS_FILE, "r", encoding="utf-8") as f:
                 impressoras = json.load(f)
                 if impressoras:
+                    # usa 'endereco' ou 'nome'
                     impressora_config = impressoras[0].get("endereco") or impressoras[0].get("nome")
         except Exception:
             impressora_config = None
 
-    # Impressão local (Windows)
+    # Caso Windows: usa win32print/win32ui (se disponível)
     if sistema == "Windows":
         try:
             import win32print
@@ -102,10 +111,52 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.success(f"🖨️ Impresso com sucesso na impressora: {printer_name}")
 
         except Exception as e:
-            st.error(f"❌ Erro ao imprimir: {e}")
+            st.error(f"❌ Erro ao imprimir (Windows): {e}")
 
+    # Caso Android (detectado por variável de ambiente)
+    elif _detect_android_env() or sistema.lower() == "android":
+        try:
+            # Cria o texto codificado para usar em intent/rawbt
+            # Substitui linhas duplicadas e limita tamanho razoável
+            texto_para_imprimir = texto.strip()
+            texto_codificado = urllib.parse.quote(texto_para_imprimir)
+
+            # Intent (muito compatível) - abre RawBT com o texto
+            url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
+
+            # Esquema rawbt:// (alternativa)
+            url_rawbt = f"rawbt://print?text={texto_codificado}"
+
+            st.info("📱 Modo Android detectado — use RawBT para imprimir via Bluetooth.")
+            # Botão intent (abre RawBT)
+            st.markdown(
+                f'''
+                <div>
+                  <a href="{url_intent}" target="_blank" style="text-decoration:none;">
+                    <button style="background-color:#007bff;color:white;padding:8px 14px;border:none;border-radius:6px;font-size:16px;">
+                      🖨️ Imprimir via RawBT (abrir app)
+                    </button>
+                  </a>
+                  &nbsp;
+                  <a href="{url_rawbt}" target="_blank" style="text-decoration:none;">
+                    <button style="background-color:#28a745;color:white;padding:8px 14px;border:none;border-radius:6px;font-size:16px;">
+                      🔁 Abrir RawBT (fallback)
+                    </button>
+                  </a>
+                </div>
+                ''',
+                unsafe_allow_html=True
+            )
+
+            st.caption("Se o RawBT abrir com o texto, toque em 'Print' dentro do app. Se nada acontecer, instale o RawBT ou use o botão de download abaixo.")
+            # Oferece download do arquivo .txt como fallback (usuário pode abrir e compartilhar com RawBT)
+            st.download_button("⬇️ Baixar arquivo de impressão (.txt) — compartilhar com RawBT", data=texto_para_imprimir, file_name="pedido_the_rua.txt", mime="text/plain")
+        except Exception as e:
+            st.error(f"Erro ao preparar impressão para Android: {e}")
+
+    # Outros ambientes (nuvem, linux server)
     else:
-        st.warning("⚠️ Impressão local desativada neste servidor (modo nuvem).")
+        st.warning("⚠️ Impressão local desativada neste servidor (modo nuvem). Para imprimir localmente, execute o app em um dispositivo Android com RawBT instalado ou em Windows local com impressora configurada.")
 
 def imprimir_pedido(pedido):
     texto = f"""
