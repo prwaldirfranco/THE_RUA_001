@@ -119,7 +119,6 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
 
-    # Botão fixo que não desaparece
     if is_android:
         st.markdown(
             f"""
@@ -144,19 +143,6 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         st.caption("📱 Toque no botão acima para abrir o RawBT e imprimir o pedido.")
     else:
         st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado.")
-
-# ---------------------------------------------------
-# Função extra: Teste de Impressão
-# ---------------------------------------------------
-def testar_impressao():
-    texto_teste = """
-====== TESTE DE IMPRESSÃO ======
-✅ Impressora configurada corretamente.
-Verifique se o texto foi impresso
-ou exibido no app RawBT.
-==============================
-"""
-    imprimir_texto(texto_teste, titulo="Teste de Impressão")
 
 # ---------------------------------------------------
 # Impressão de Pedido
@@ -207,40 +193,12 @@ def salvar_caixa(caixa):
         json.dump(caixa, f, indent=4, ensure_ascii=False)
 
 
-def abrir_caixa(valor_inicial=0.0):
-    caixa = {
-        "aberto": True,
-        "aberto_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "fechado_em": None,
-        "valor_inicial": float(valor_inicial)
-    }
-    salvar_caixa(caixa)
-
-
-def fechar_caixa():
-    caixa = carregar_caixa()
-    caixa["aberto"] = False
-    caixa["fechado_em"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    salvar_caixa(caixa)
-    return caixa
-
-
-def gerar_relatorio_caixa():
-    pedidos = carregar_pedidos()
-    if not pedidos:
-        return None
-    total_geral = sum(p.get("total", 0) for p in pedidos)
-    por_pagamento = {}
-    for p in pedidos:
-        pg = p.get("pagamento", "Outros")
-        por_pagamento[pg] = por_pagamento.get(pg, 0) + p.get("total", 0)
-    return {"total": total_geral, "pagamentos": por_pagamento, "qtd": len(pedidos)}
-
 # ==========================================================
 # 💵 Painel do Caixa
 # ==========================================================
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
+st.caption("Gerencie os pedidos recebidos e veja comprovantes PIX enviados pelos clientes.")
 
 pedidos = carregar_pedidos()
 if not pedidos:
@@ -265,20 +223,13 @@ for pedido in pedidos:
         if pedido["tipo_pedido"] == "Entrega":
             st.caption(f"📍 {pedido['endereco']}")
 
-        # 💳 Comprovante PIX (restaurado)
+        # 💳 Mostra comprovante PIX apenas (sem upload)
         if pedido.get("pagamento") == "Pix":
-            st.markdown("💳 **Pagamento via PIX confirmado!**")
+            st.markdown("💳 **Pagamento via PIX**")
             if pedido.get("comprovante_pix"):
                 st.image(pedido["comprovante_pix"], caption="📄 Comprovante PIX", use_container_width=True)
             else:
-                comp = st.file_uploader(f"Enviar comprovante PIX para {pedido['nome']}", type=["png", "jpg", "jpeg"], key=f"pix_{pedido['id']}")
-                if comp:
-                    caminho = f"comprovante_{pedido['id']}.png"
-                    with open(caminho, "wb") as f:
-                        f.write(comp.read())
-                    pedido["comprovante_pix"] = caminho
-                    salvar_pedidos(pedidos)
-                    st.success("📄 Comprovante PIX salvo com sucesso!")
+                st.info("Aguardando envio do comprovante PIX pelo cliente...")
 
     with col2:
         st.markdown("#### Itens")
