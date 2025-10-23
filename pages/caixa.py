@@ -5,7 +5,7 @@ import platform
 import urllib.parse
 from datetime import datetime
 
-# Tenta importar o módulo opcional de JS
+# Tenta importar o JS, mas não quebra se não existir
 try:
     from streamlit_javascript import st_javascript
 except Exception:
@@ -58,6 +58,7 @@ def atualizar_status(pedido_id, novo_status):
             salvar_pedidos(pedidos)
             return True
     return False
+
 
 # ---------------------------------------------------
 # Impressão automática (Windows ou Android/RawBT)
@@ -120,6 +121,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     url_rawbt = f"rawbt://print?text={texto_codificado}"
 
     if is_android:
+        st.info("📱 Dispositivo Android detectado — pronto para imprimir via RawBT.")
         st.markdown(
             f"""
             <div style='text-align:center;margin-top:20px;'>
@@ -140,9 +142,15 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             """,
             unsafe_allow_html=True
         )
-        st.caption("📱 Toque no botão acima para abrir o RawBT e imprimir o pedido.")
+        st.download_button(
+            "⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
+            data=texto_para_imprimir,
+            file_name="pedido_the_rua.txt",
+            mime="text/plain",
+        )
     else:
         st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado.")
+
 
 # ---------------------------------------------------
 # Impressão de Pedido
@@ -172,33 +180,13 @@ Tipo: {pedido['tipo_pedido']}
 
     imprimir_texto(texto, titulo="Pedido THE RUA")
 
+
 # ---------------------------------------------------
-# Controle de caixa
+# Interface do Caixa
 # ---------------------------------------------------
-def carregar_caixa():
-    if not os.path.exists(CAIXA_FILE):
-        return {"aberto": False, "valor_inicial": 0.0}
-    with open(CAIXA_FILE, "r", encoding="utf-8") as f:
-        try:
-            data = json.load(f)
-            if not isinstance(data, dict):
-                data = {"aberto": False, "valor_inicial": 0.0}
-            return data
-        except:
-            return {"aberto": False, "valor_inicial": 0.0}
-
-
-def salvar_caixa(caixa):
-    with open(CAIXA_FILE, "w", encoding="utf-8") as f:
-        json.dump(caixa, f, indent=4, ensure_ascii=False)
-
-
-# ==========================================================
-# 💵 Painel do Caixa
-# ==========================================================
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
-st.caption("Gerencie os pedidos recebidos e veja comprovantes PIX enviados pelos clientes.")
+st.caption("Gerencie pedidos, veja comprovantes PIX e imprima recibos diretamente.")
 
 pedidos = carregar_pedidos()
 if not pedidos:
@@ -223,11 +211,17 @@ for pedido in pedidos:
         if pedido["tipo_pedido"] == "Entrega":
             st.caption(f"📍 {pedido['endereco']}")
 
-        # 💳 Mostra comprovante PIX apenas (sem upload)
+        # 💳 Mostrar e permitir baixar comprovante PIX (enviado pelo cliente)
         if pedido.get("pagamento") == "Pix":
             st.markdown("💳 **Pagamento via PIX**")
             if pedido.get("comprovante_pix"):
                 st.image(pedido["comprovante_pix"], caption="📄 Comprovante PIX", use_container_width=True)
+                st.download_button(
+                    label="⬇️ Baixar Comprovante PIX",
+                    data=open(pedido["comprovante_pix"], "rb").read(),
+                    file_name=f"comprovante_{pedido['codigo_rastreio']}.jpg",
+                    mime="image/jpeg",
+                )
             else:
                 st.info("Aguardando envio do comprovante PIX pelo cliente...")
 
