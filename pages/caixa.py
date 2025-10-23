@@ -54,109 +54,86 @@ def atualizar_status(pedido_id, novo_status):
 # Impressão automática (Windows ou Android/RawBT)
 # ---------------------------------------------------
 def _detect_android_env():
-    """Detecta se estamos rodando em um ambiente Android (WebView/termux/etc)."""
-    # Android geralmente tem essas variáveis de ambiente presentes
     android_keys = ("ANDROID_BOOTLOGO", "ANDROID_ROOT", "ANDROID_DATA", "ANDROID_ARGUMENT")
     return any(k in os.environ for k in android_keys)
 
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
-    """
-    Impressão automática:
-      - Windows: imprime na impressora padrão ou configurada via win32.
-      - Android: cria botões/links para enviar para RawBT (intents e esquema rawbt://).
-      - Nuvem/Outros: exibe aviso.
-    """
     sistema = platform.system()
     impressora_config = None
 
-    # Tenta carregar impressora configurada manualmente
+    # Carrega impressora configurada
     if os.path.exists(IMPRESSORAS_FILE):
         try:
             with open(IMPRESSORAS_FILE, "r", encoding="utf-8") as f:
                 impressoras = json.load(f)
                 if impressoras:
-                    # usa 'endereco' ou 'nome'
                     impressora_config = impressoras[0].get("endereco") or impressoras[0].get("nome")
         except Exception:
             impressora_config = None
 
-    # Caso Windows: usa win32print/win32ui (se disponível)
+    # Caso Windows
     if sistema == "Windows":
         try:
-            import win32print
-            import win32ui
-
+            import win32print, win32ui
             printer_name = impressora_config or win32print.GetDefaultPrinter()
             hDC = win32ui.CreateDC()
             hDC.CreatePrinterDC(printer_name)
             hDC.StartDoc(titulo)
             hDC.StartPage()
-
-            # Fonte tamanho 18, espaçamento compacto
-            font = win32ui.CreateFont({
-                "name": "Arial",
-                "height": 18 * -1,
-                "weight": 400
-            })
+            font = win32ui.CreateFont({"name": "Arial", "height": -18, "weight": 400})
             hDC.SelectObject(font)
-
             y = 20
             for linha in texto.splitlines():
                 hDC.TextOut(20, y, linha.strip())
-                y += 40  # menor espaçamento
-
+                y += 35
             hDC.EndPage()
             hDC.EndDoc()
             hDC.DeleteDC()
             st.success(f"🖨️ Impresso com sucesso na impressora: {printer_name}")
-
         except Exception as e:
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
 
-    # Caso Android (detectado por variável de ambiente)
+    # Caso Android (RawBT)
     elif _detect_android_env() or sistema.lower() == "android":
         try:
-            # Cria o texto codificado para usar em intent/rawbt
-            # Substitui linhas duplicadas e limita tamanho razoável
-            texto_para_imprimir = texto.strip()
+            texto_para_imprimir = texto.strip().replace("\n\n", "\n")
             texto_codificado = urllib.parse.quote(texto_para_imprimir)
-
-            # Intent (muito compatível) - abre RawBT com o texto
             url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
-
-            # Esquema rawbt:// (alternativa)
             url_rawbt = f"rawbt://print?text={texto_codificado}"
 
-            st.info("📱 Modo Android detectado — use RawBT para imprimir via Bluetooth.")
-            # Botão intent (abre RawBT)
+            st.info("📱 Impressora Bluetooth detectada via RawBT")
             st.markdown(
-                f'''
-                <div>
-                  <a href="{url_intent}" target="_blank" style="text-decoration:none;">
-                    <button style="background-color:#007bff;color:white;padding:8px 14px;border:none;border-radius:6px;font-size:16px;">
-                      🖨️ Imprimir via RawBT (abrir app)
+                f"""
+                <div style='margin-top:10px;'>
+                  <a href="{url_intent}" target="_blank">
+                    <button style="background:#007bff;color:white;padding:10px 18px;border:none;border-radius:8px;font-size:16px;">
+                      🖨️ Imprimir via RawBT
                     </button>
                   </a>
                   &nbsp;
-                  <a href="{url_rawbt}" target="_blank" style="text-decoration:none;">
-                    <button style="background-color:#28a745;color:white;padding:8px 14px;border:none;border-radius:6px;font-size:16px;">
-                      🔁 Abrir RawBT (fallback)
+                  <a href="{url_rawbt}" target="_blank">
+                    <button style="background:#28a745;color:white;padding:10px 18px;border:none;border-radius:8px;font-size:16px;">
+                      🔁 Alternativo (RawBT Link)
                     </button>
                   </a>
                 </div>
-                ''',
+                """,
                 unsafe_allow_html=True
             )
 
-            st.caption("Se o RawBT abrir com o texto, toque em 'Print' dentro do app. Se nada acontecer, instale o RawBT ou use o botão de download abaixo.")
-            # Oferece download do arquivo .txt como fallback (usuário pode abrir e compartilhar com RawBT)
-            st.download_button("⬇️ Baixar arquivo de impressão (.txt) — compartilhar com RawBT", data=texto_para_imprimir, file_name="pedido_the_rua.txt", mime="text/plain")
+            st.caption("Toque em **Imprimir via RawBT** para abrir o app e imprimir automaticamente. Se não funcionar, use o botão alternativo.")
+            st.download_button(
+                "⬇️ Baixar arquivo (.txt) para imprimir manualmente",
+                data=texto_para_imprimir,
+                file_name="pedido_the_rua.txt",
+                mime="text/plain",
+            )
         except Exception as e:
-            st.error(f"Erro ao preparar impressão para Android: {e}")
+            st.error(f"Erro ao preparar impressão Android: {e}")
 
-    # Outros ambientes (nuvem, linux server)
+    # Outros ambientes
     else:
-        st.warning("⚠️ Impressão local desativada neste servidor (modo nuvem). Para imprimir localmente, execute o app em um dispositivo Android com RawBT instalado ou em Windows local com impressora configurada.")
+        st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT.")
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -180,7 +157,6 @@ Tipo: {pedido['tipo_pedido']}
     if pedido.get("observacoes"):
         texto += f"Obs: {pedido['observacoes']}\n"
     texto += "\n==============================\n"
-
     imprimir_texto(texto, titulo="Pedido THE RUA")
 
 # ---------------------------------------------------
@@ -236,7 +212,7 @@ st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
 st.caption("Gerencie pedidos, vendas no balcão e o fechamento do caixa.")
 
-# --- Teste de impressão (novo recurso) ---
+# --- Teste de impressão ---
 st.sidebar.subheader("🖨️ Impressora Local")
 if st.sidebar.button("🧾 Testar Impressão"):
     imprimir_texto("""
@@ -245,7 +221,7 @@ Impressora configurada corretamente!
 ==============================
 """, titulo="Teste de Impressão")
 
-# --- Caixa aberto/fechado ---
+# --- Caixa ---
 st.sidebar.header("🧾 Controle de Caixa")
 caixa = carregar_caixa()
 
@@ -278,10 +254,9 @@ Por pagamento:
 """
             for pg, valor in rel["pagamentos"].items():
                 resumo += f"- {pg}: R$ {valor:.2f}\n"
-
             resumo += f"\n==============================\n💰 Total em dinheiro físico: R$ {total_final:.2f}\n=============================="
             imprimir_texto(resumo, titulo="Fechamento THE RUA")
-        st.success("Caixa fechado com sucesso!")
+        st.success("Caixa fechado com sucesso! ✅")
         st.rerun()
 
 # ---------------------------------------------------
@@ -319,7 +294,8 @@ with st.expander("🧾 Registrar Pedido de Balcão"):
                 pedidos = carregar_pedidos()
                 pedidos.append(novo)
                 salvar_pedidos(pedidos)
-                st.success("✅ Pedido de balcão registrado!")
+                imprimir_pedido(novo)
+                st.success("✅ Pedido de balcão registrado e impresso!")
                 st.rerun()
 
 # ---------------------------------------------------
@@ -348,9 +324,6 @@ for pedido in pedidos:
         if pedido["tipo_pedido"] == "Entrega":
             st.caption(f"📍 {pedido['endereco']}")
         st.caption(f"🧾 Pagamento: {pedido['pagamento']}")
-        if pedido.get("comprovante") and os.path.exists(pedido["comprovante"]):
-            with open(pedido["comprovante"], "rb") as f:
-                st.download_button("📎 Ver comprovante", data=f, file_name=os.path.basename(pedido["comprovante"]))
         if pedido.get("observacoes"):
             st.caption(f"✏️ {pedido['observacoes']}")
 
@@ -369,22 +342,10 @@ for pedido in pedidos:
                 st.success("Pedido aceito.")
                 st.rerun()
 
-        if st.button("✏️ Editar", key=f"edit_{pedido['id']}"):
-            with st.form(f"edit_form_{pedido['id']}"):
-                nome = st.text_input("Nome", pedido["nome"])
-                telefone = st.text_input("Telefone", pedido["telefone"])
-                endereco = st.text_input("Endereço", pedido["endereco"])
-                obs = st.text_area("Observações", pedido.get("observacoes", ""))
-                if st.form_submit_button("Salvar"):
-                    pedido["nome"], pedido["telefone"], pedido["endereco"], pedido["observacoes"] = nome, telefone, endereco, obs
-                    salvar_pedidos(pedidos)
-                    st.success("Atualizado!")
-                    st.rerun()
-
-        if st.button("🗑️ Excluir", key=f"del_{pedido['id']}"):
-            excluir_pedido(pedido["id"])
-            st.warning("Pedido excluído.")
-            st.rerun()
-
         if st.button("🖨️ Imprimir", key=f"print_{pedido['id']}"):
             imprimir_pedido(pedido)
+
+        if st.button("🗑️ Excluir", key=f"del_{pedido['id']}"):
+            excluir_pedido(pedido)
+            st.warning("Pedido excluído.")
+            st.rerun()
