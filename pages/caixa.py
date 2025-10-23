@@ -96,7 +96,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
             return
 
-    # --- Caso Android (via navegador + RawBT) ---
+    # --- Caso Android (RawBT) ---
     try:
         user_agent = st_javascript("navigator.userAgent.toLowerCase();")
     except Exception:
@@ -110,15 +110,26 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     url_rawbt = f"rawbt://print?text={texto_codificado}"
 
     if is_android:
-        # Mantém botões fixos (sem rerun)
-        st.session_state["imprimindo"] = True
-        st.info("📱 Pronto para imprimir via RawBT — toque no botão abaixo.")
+        # --- Tenta abrir o RawBT automaticamente ---
+        st.markdown(
+            f"""
+            <script>
+            setTimeout(function(){{
+                window.location.href = "{url_intent}";
+            }}, 1000);
+            </script>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # --- Mostra botões fixos de backup ---
+        st.info("📱 Android detectado — abrindo automaticamente o RawBT...")
         st.markdown(
             f"""
             <div style='margin-top:10px;text-align:center;'>
                 <a href="{url_intent}" target="_blank">
                     <button style="background:#007bff;color:white;padding:14px 22px;border:none;border-radius:10px;font-size:18px;">
-                        🖨️ Imprimir via RawBT
+                        🖨️ Reabrir RawBT
                     </button>
                 </a>
                 &nbsp;
@@ -131,13 +142,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             """,
             unsafe_allow_html=True
         )
-        st.caption("Depois de tocar, o RawBT abrirá com o texto. Toque em **Print** dentro do app para concluir.")
-        st.download_button(
-            "⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
-            data=texto_para_imprimir,
-            file_name="pedido_the_rua.txt",
-            mime="text/plain",
-        )
+        st.caption("✅ Se o RawBT não abrir automaticamente, toque em um dos botões acima.")
     else:
         st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado e abra este sistema pelo navegador (Chrome, Opera ou Edge).")
 
@@ -164,6 +169,25 @@ Tipo: {pedido['tipo_pedido']}
         texto += f"Obs: {pedido['observacoes']}\n"
     texto += "\n==============================\n"
     imprimir_texto(texto, titulo="Pedido THE RUA")
+
+# ---------------------------------------------------
+# Interface (mantém igual)
+# ---------------------------------------------------
+st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
+st.title("💵 Painel do Caixa")
+st.caption("Gerencie pedidos, vendas no balcão e o fechamento do caixa.")
+
+st.sidebar.subheader("🖨️ Impressora Local")
+if st.sidebar.button("🧾 Testar Impressão"):
+    imprimir_texto("""
+====== TESTE DE IMPRESSÃO ======
+Impressora configurada corretamente!
+==============================
+""", titulo="Teste de Impressão")
+
+# ---------------------------------------------------
+# Aqui você mantém o restante igual (caixa, pedidos etc)
+# ---------------------------------------------------
 
 # ---------------------------------------------------
 # Controle de caixa
