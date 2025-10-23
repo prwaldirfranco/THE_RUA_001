@@ -110,7 +110,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     except Exception:
         user_agent = ""
 
-    is_android = "android" in str(user_agent).lower() or _detect_android_env()
+    is_android = True
 
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
