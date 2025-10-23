@@ -103,8 +103,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
 
     # --- Android / Web ---
     try:
-        from streamlit_javascript import st_javascript
-        user_agent = st_javascript("navigator.userAgent.toLowerCase();")
+        user_agent = st_javascript("navigator.userAgent.toLowerCase();") if st_javascript else ""
     except Exception:
         user_agent = ""
 
@@ -112,22 +111,16 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
 
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
-
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
 
-    # Mantém os botões fixos na tela até que o usuário realmente clique
-    if "imprimindo" not in st.session_state:
-        st.session_state["imprimindo"] = False
-
-    st.session_state["imprimindo"] = True
-
+    # Mantém os botões na tela
     with st.container():
         st.info("📱 Pronto para imprimir via RawBT — toque no botão abaixo.")
         st.markdown(
             f"""
             <div style='margin-top:10px;text-align:center;'>
-                <a href="{url_intent}" target="_blank" onclick="setTimeout(()=>window.close(),2000)">
+                <a href="{url_intent}" target="_blank">
                     <button style="background:#007bff;color:white;padding:14px 22px;border:none;border-radius:10px;font-size:18px;">
                         🖨️ Imprimir via RawBT
                     </button>
@@ -142,7 +135,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             """,
             unsafe_allow_html=True
         )
-        st.caption("Depois de tocar, o RawBT deve abrir com o texto. Toque em **Print** no app para concluir.")
+        st.caption("Depois de tocar, o RawBT deve abrir. Toque em **Print** no app para concluir.")
         st.download_button(
             "⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
             data=texto_para_imprimir,
@@ -150,6 +143,23 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             mime="text/plain",
         )
 
+# ---------------------------------------------------
+# Função extra: Teste de Impressão
+# ---------------------------------------------------
+def testar_impressao():
+    """Imprime uma página de teste simples para verificar conexão com RawBT ou impressora local."""
+    texto_teste = """
+====== TESTE DE IMPRESSÃO ======
+✅ Impressora configurada corretamente.
+Verifique se o texto foi impresso
+ou exibido no app RawBT.
+==============================
+"""
+    imprimir_texto(texto_teste, titulo="Teste de Impressão")
+
+# ---------------------------------------------------
+# Impressão de Pedido
+# ---------------------------------------------------
 def imprimir_pedido(pedido):
     texto = f"""
 ====== THE RUA HAMBURGUERIA ======
@@ -164,15 +174,14 @@ Tipo: {pedido['tipo_pedido']}
 
     texto += "\nItens:\n"
     for item in pedido.get("produtos", []):
-        texto += f"- {item.get('quantidade', 0)}x {item.get('nome','')} R$ {item.get('preco',0)*item.get('quantidade',0):.2f}\n"
+        texto += f"- {item.get('quantidade', 0)}x {item.get('nome', '')} R$ {item.get('preco', 0) * item.get('quantidade', 0):.2f}\n"
 
-    texto += f"\nTotal: R$ {pedido.get('total',0):.2f}\nPagamento: {pedido.get('pagamento','')}\n"
+    texto += f"\nTotal: R$ {pedido.get('total', 0):.2f}\nPagamento: {pedido.get('pagamento', '')}\n"
     if pedido.get("troco_para"):
         texto += f"Troco para: {pedido['troco_para']}\n"
     if pedido.get("observacoes"):
         texto += f"Obs: {pedido['observacoes']}\n"
     texto += "\n==============================\n"
-
     imprimir_texto(texto, titulo="Pedido THE RUA")
 
 # ---------------------------------------------------
@@ -226,16 +235,12 @@ def gerar_relatorio_caixa():
 # ---------------------------------------------------
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
-st.caption("Gerencie pedidos, vendas no balcão e o fechamento do caixa.")
+st.caption("Gerencie pedidos, vendas no balcão e impressão via RawBT ou Windows.")
 
 # --- Teste de impressão ---
 st.sidebar.subheader("🖨️ Impressora Local")
 if st.sidebar.button("🧾 Testar Impressão"):
-    imprimir_texto("""
-====== TESTE DE IMPRESSÃO ======
-Impressora configurada corretamente!
-==============================
-""", titulo="Teste de Impressão")
+    testar_impressao()
 
 # --- Caixa ---
 st.sidebar.header("🧾 Controle de Caixa")
@@ -310,9 +315,8 @@ with st.expander("🧾 Registrar Pedido de Balcão"):
                 pedidos = carregar_pedidos()
                 pedidos.append(novo)
                 salvar_pedidos(pedidos)
-                # imprimir pedido automaticamente ao registrar no balcão
                 imprimir_pedido(novo)
-                st.success("✅ Pedido de balcão registrado e impresso!")
+                st.success("✅ Pedido registrado e impresso!")
                 st.rerun()
 
 # ---------------------------------------------------
