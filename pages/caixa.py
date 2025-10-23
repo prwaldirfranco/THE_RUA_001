@@ -4,7 +4,12 @@ import os
 import platform
 import urllib.parse
 from datetime import datetime
-from streamlit_javascript import st_javascript
+
+# try import st_javascript but don't crash if not available
+try:
+    from streamlit_javascript import st_javascript
+except Exception:
+    st_javascript = None
 
 # ---------------------------------------------------
 # Segurança — exige login antes de acessar a página
@@ -59,13 +64,15 @@ def _detect_android_env():
     return any(k in os.environ for k in android_keys)
 
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
-    import streamlit as st
-    import platform, urllib.parse, os, json
-
+    """
+    Impressão automática:
+      - Windows: imprime com win32 (se disponível).
+      - Não-Windows (tablet/web): mostra botões RawBT + download .txt.
+    """
     sistema = platform.system()
     impressora_config = None
 
-    # Carrega impressora configurada
+    # Carrega impressora configurada (se existir)
     if os.path.exists(IMPRESSORAS_FILE):
         try:
             with open(IMPRESSORAS_FILE, "r", encoding="utf-8") as f:
@@ -75,21 +82,30 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         except Exception:
             impressora_config = None
 
-    # --- CASO WINDOWS ---
+    # Caso Windows: usa win32print/win32ui (se disponível)
     if sistema == "Windows":
         try:
-            import win32print, win32ui
+            import win32print
+            import win32ui
+
             printer_name = impressora_config or win32print.GetDefaultPrinter()
             hDC = win32ui.CreateDC()
             hDC.CreatePrinterDC(printer_name)
             hDC.StartDoc(titulo)
             hDC.StartPage()
-            font = win32ui.CreateFont({"name": "Arial", "height": -18, "weight": 400})
+
+            # Fonte tamanho ~18 (valor negativo indica pontos)
+            font = win32ui.CreateFont({
+                "name": "Arial",
+                "height": 18 * -1,
+                "weight": 400
+            })
             hDC.SelectObject(font)
+
             y = 20
             for linha in texto.splitlines():
                 hDC.TextOut(20, y, linha.strip())
-                y += 35
+                y += 35  # espaçamento reduzido
             hDC.EndPage()
             hDC.EndDoc()
             hDC.DeleteDC()
@@ -99,66 +115,65 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
             return
 
-    # --- CASO ANDROID (via navegador web) ---
-    # Tentativa 1: detecção via user-agent Streamlit (browser header)
+    # Para ambiente não-Windows (web / tablet):
+    # Tentativa de detectar Android via JS (userAgent) quando possível
+    user_agent = ""
     try:
-        user_agent = st.session_state.get("_user_agent", None)
-        if not user_agent:
-            import streamlit.runtime.scriptrunner.script_run_context as ctx
-            user_agent = getattr(ctx.get_script_run_ctx(), "session_id", "")
-    except:
+        if st_javascript:
+            ua_js = st_javascript("navigator.userAgent.toLowerCase();")
+            if ua_js:
+                user_agent = ua_js
+    except Exception:
         user_agent = ""
 
-    # Tentativa 2: JS simples — se funcionar
-    try:
-        from streamlit_javascript import st_javascript
-        ua_js = st_javascript("navigator.userAgent.toLowerCase();")
-        if ua_js:
-            user_agent = ua_js
-    except:
-        pass
-
-    # Verifica se é Android
-    is_android = False
+    # fallback: uso de variáveis de ambiente
+    is_android_env = _detect_android_env()
+    is_android_ua = False
     if user_agent and "android" in str(user_agent).lower():
-        is_android = True
-    elif "android" in platform.platform().lower():
-        is_android = True
+        is_android_ua = True
 
-    # --- Exibe botões RawBT ---
-    if is_android:
-        texto_para_imprimir = texto.strip().replace("\n\n", "\n")
-        texto_codificado = urllib.parse.quote(texto_para_imprimir)
-        url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
-        url_rawbt = f"rawbt://print?text={texto_codificado}"
+    is_android = is_android_env or is_android_ua
 
-        st.success("✅ Android detectado — pronto para imprimir via RawBT.")
-        st.markdown(
-            f"""
-            <div style='margin-top:10px;text-align:center;'>
-                <a href="{url_intent}" target="_blank">
-                    <button style="background:#007bff;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
-                        🖨️ Imprimir via RawBT
-                    </button>
-                </a>
-                &nbsp;
-                <a href="{url_rawbt}" target="_blank">
-                    <button style="background:#28a745;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
-                        🔁 Alternativo (RawBT Link)
-                    </button>
-                </a>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-        st.download_button(
-            "⬇️ Baixar arquivo (.txt) — abrir no RawBT",
-            data=texto_para_imprimir,
-            file_name="pedido_the_rua.txt",
-            mime="text/plain",
-        )
-    else:
-        st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado e abra este sistema pelo navegador (Chrome, Opera ou Edge).")
+    # Preparar texto para RawBT
+    texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
+    texto_codificado = urllib.parse.quote(texto_para_imprimir)
+
+    # URLs RawBT
+    url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
+    url_rawbt = f"rawbt://print?text={texto_codificado}"
+
+    # Exibir botões RawBT sempre para ambientes não-Windows (melhor UX em tablet via web)
+    st.info("📱 Impressão via RawBT disponível para tablets Android (abrir no dispositivo).")
+    st.markdown(
+        f"""
+        <div style='margin-top:10px;text-align:center;'>
+            <a href="{url_intent}" target="_blank" rel="noopener">
+                <button style="background:#007bff;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
+                    🖨️ Imprimir via RawBT (Intent)
+                </button>
+            </a>
+            &nbsp;
+            <a href="{url_rawbt}" target="_blank" rel="noopener">
+                <button style="background:#28a745;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
+                    🔁 Abrir RawBT (rawbt://)
+                </button>
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.caption("Se o RawBT abrir com o texto, toque em 'Print' dentro do app. Caso não funcione, baixe o arquivo e abra pelo RawBT.")
+    st.download_button(
+        "⬇️ Baixar arquivo (.txt) — abrir no RawBT",
+        data=texto_para_imprimir,
+        file_name="pedido_the_rua.txt",
+        mime="text/plain",
+    )
+
+    # Se detectamos que não é Android (por user-agent/ambiente), mostramos aviso extra
+    if not is_android:
+        st.warning("⚠️ Não detectamos ambiente Android. Se estiver em tablet Android, abra este app no navegador do próprio tablet (Chrome/Edge/Opera) e toque em 'Imprimir via RawBT'.")
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -174,14 +189,15 @@ Tipo: {pedido['tipo_pedido']}
 
     texto += "\nItens:\n"
     for item in pedido.get("produtos", []):
-        texto += f"- {item['quantidade']}x {item['nome']} R$ {item['preco'] * item['quantidade']:.2f}\n"
+        texto += f"- {item.get('quantidade', 0)}x {item.get('nome','')} R$ {item.get('preco',0)*item.get('quantidade',0):.2f}\n"
 
-    texto += f"\nTotal: R$ {pedido['total']:.2f}\nPagamento: {pedido['pagamento']}\n"
+    texto += f"\nTotal: R$ {pedido.get('total',0):.2f}\nPagamento: {pedido.get('pagamento','')}\n"
     if pedido.get("troco_para"):
         texto += f"Troco para: {pedido['troco_para']}\n"
     if pedido.get("observacoes"):
         texto += f"Obs: {pedido['observacoes']}\n"
     texto += "\n==============================\n"
+
     imprimir_texto(texto, titulo="Pedido THE RUA")
 
 # ---------------------------------------------------
@@ -319,6 +335,7 @@ with st.expander("🧾 Registrar Pedido de Balcão"):
                 pedidos = carregar_pedidos()
                 pedidos.append(novo)
                 salvar_pedidos(pedidos)
+                # imprimir pedido automaticamente ao registrar no balcão
                 imprimir_pedido(novo)
                 st.success("✅ Pedido de balcão registrado e impresso!")
                 st.rerun()
@@ -355,7 +372,7 @@ for pedido in pedidos:
     with col2:
         st.markdown("#### Itens")
         for item in pedido.get("produtos", []):
-            st.markdown(f"- {item['quantidade']}x {item['nome']} (R$ {item['preco']:.2f})")
+            st.markdown(f"- {item.get('quantidade',0)}x {item.get('nome','')} (R$ {item.get('preco',0):.2f})")
 
     with col3:
         st.markdown("#### Ações")
@@ -371,6 +388,6 @@ for pedido in pedidos:
             imprimir_pedido(pedido)
 
         if st.button("🗑️ Excluir", key=f"del_{pedido['id']}"):
-            excluir_pedido(pedido)
+            excluir_pedido(pedido['id'])
             st.warning("Pedido excluído.")
             st.rerun()
