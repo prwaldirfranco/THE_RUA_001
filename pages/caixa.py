@@ -4,6 +4,7 @@ import os
 import platform
 import urllib.parse
 from datetime import datetime
+from streamlit_javascript import st_javascript
 
 # ---------------------------------------------------
 # Segurança — exige login antes de acessar a página
@@ -71,7 +72,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         except Exception:
             impressora_config = None
 
-    # Caso Windows
+    # Caso Windows (impressão automática)
     if sistema == "Windows":
         try:
             import win32print, win32ui
@@ -93,48 +94,49 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         except Exception as e:
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
 
-    # Caso Android (RawBT)
-    elif _detect_android_env() or sistema.lower() == "android":
-        try:
-            texto_para_imprimir = texto.strip().replace("\n\n", "\n")
-            texto_codificado = urllib.parse.quote(texto_para_imprimir)
-            url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
-            url_rawbt = f"rawbt://print?text={texto_codificado}"
-
-            st.info("📱 Impressora Bluetooth detectada via RawBT")
-            st.markdown(
-                f"""
-                <div style='margin-top:10px;'>
-                  <a href="{url_intent}" target="_blank">
-                    <button style="background:#007bff;color:white;padding:10px 18px;border:none;border-radius:8px;font-size:16px;">
-                      🖨️ Imprimir via RawBT
-                    </button>
-                  </a>
-                  &nbsp;
-                  <a href="{url_rawbt}" target="_blank">
-                    <button style="background:#28a745;color:white;padding:10px 18px;border:none;border-radius:8px;font-size:16px;">
-                      🔁 Alternativo (RawBT Link)
-                    </button>
-                  </a>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            st.caption("Toque em **Imprimir via RawBT** para abrir o app e imprimir automaticamente. Se não funcionar, use o botão alternativo.")
-            st.download_button(
-                "⬇️ Baixar arquivo (.txt) para imprimir manualmente",
-                data=texto_para_imprimir,
-                file_name="pedido_the_rua.txt",
-                mime="text/plain",
-            )
-        except Exception as e:
-            st.error(f"Erro ao preparar impressão Android: {e}")
-
-    # Outros ambientes
+    # Para outros ambientes (nuvem/Linux), detecta se o cliente é Android via JS
     else:
-        st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT.")
+        # Executa JS para detectar user agent do cliente
+        is_android = st_javascript("""window.navigator.userAgent.toLowerCase().includes('android')""")
 
+        if is_android:
+            try:
+                texto_para_imprimir = texto.strip().replace("\n\n", "\n")
+                texto_codificado = urllib.parse.quote(texto_para_imprimir)
+                url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
+                url_rawbt = f"rawbt://print?text={texto_codificado}"
+
+                st.info("📱 Impressora Bluetooth detectada via RawBT")
+                st.markdown(
+                    f"""
+                    <div style='margin-top:10px;'>
+                      <a href="{url_intent}" target="_blank">
+                        <button style="background:#007bff;color:white;padding:10px 18px;border:none;border-radius:8px;font-size:16px;">
+                          🖨️ Imprimir via RawBT
+                        </button>
+                      </a>
+                      &nbsp;
+                      <a href="{url_rawbt}" target="_blank">
+                        <button style="background:#28a745;color:white;padding:10px 18px;border:none;border-radius:8px;font-size:16px;">
+                          🔁 Alternativo (RawBT Link)
+                        </button>
+                      </a>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                st.caption("Toque em **Imprimir via RawBT** para abrir o app e imprimir automaticamente. Se não funcionar, use o botão alternativo.")
+                st.download_button(
+                    "⬇️ Baixar arquivo (.txt) para imprimir manualmente",
+                    data=texto_para_imprimir,
+                    file_name="pedido_the_rua.txt",
+                    mime="text/plain",
+                )
+            except Exception as e:
+                st.error(f"Erro ao preparar impressão Android: {e}")
+        else:
+            st.warning("⚠️ Impressão local desativada neste servidor (modo nuvem). Para imprimir localmente, execute o app em um dispositivo Android com RawBT instalado ou em Windows local com impressora configurada.")
 def imprimir_pedido(pedido):
     texto = f"""
 ====== THE RUA HAMBURGUERIA ======
