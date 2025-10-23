@@ -59,6 +59,9 @@ def _detect_android_env():
     return any(k in os.environ for k in android_keys)
 
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
+    import streamlit as st
+    import platform, urllib.parse, os, json
+
     sistema = platform.system()
     impressora_config = None
 
@@ -72,7 +75,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         except Exception:
             impressora_config = None
 
-    # Caso Windows (impressão local)
+    # --- CASO WINDOWS ---
     if sistema == "Windows":
         try:
             import win32print, win32ui
@@ -91,67 +94,71 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             hDC.EndDoc()
             hDC.DeleteDC()
             st.success(f"🖨️ Impresso com sucesso na impressora: {printer_name}")
+            return
         except Exception as e:
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
-        return
+            return
 
-    # Caso Android (via RawBT)
+    # --- CASO ANDROID (via navegador web) ---
+    # Tentativa 1: detecção via user-agent Streamlit (browser header)
     try:
-        user_agent = st_javascript("navigator.userAgent.toLowerCase();")
-    except Exception:
-        user_agent = None
+        user_agent = st.session_state.get("_user_agent", None)
+        if not user_agent:
+            import streamlit.runtime.scriptrunner.script_run_context as ctx
+            user_agent = getattr(ctx.get_script_run_ctx(), "session_id", "")
+    except:
+        user_agent = ""
 
-    # Detecta Android por múltiplos métodos
-    is_android = False
+    # Tentativa 2: JS simples — se funcionar
     try:
-        if (
-            _detect_android_env()
-            or (user_agent and "android" in user_agent)
-            or "android" in platform.platform().lower()
-        ):
-            is_android = True
+        from streamlit_javascript import st_javascript
+        ua_js = st_javascript("navigator.userAgent.toLowerCase();")
+        if ua_js:
+            user_agent = ua_js
     except:
         pass
 
-    # Se for Android, exibe os botões do RawBT
-    if is_android:
-        try:
-            texto_para_imprimir = texto.strip().replace("\n\n", "\n")
-            texto_codificado = urllib.parse.quote(texto_para_imprimir)
-            url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
-            url_rawbt = f"rawbt://print?text={texto_codificado}"
+    # Verifica se é Android
+    is_android = False
+    if user_agent and "android" in str(user_agent).lower():
+        is_android = True
+    elif "android" in platform.platform().lower():
+        is_android = True
 
-            st.info("📱 Impressora Bluetooth RawBT detectada — pronta para imprimir.")
-            st.markdown(
-                f"""
-                <div style='margin-top:10px;text-align:center;'>
-                    <a href="{url_intent}" target="_blank">
-                        <button style="background:#007bff;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
-                            🖨️ Imprimir via RawBT
-                        </button>
-                    </a>
-                    &nbsp;
-                    <a href="{url_rawbt}" target="_blank">
-                        <button style="background:#28a745;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
-                            🔁 Alternativo (RawBT Link)
-                        </button>
-                    </a>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            st.caption("✅ Toque em **Imprimir via RawBT** para abrir o app e imprimir automaticamente. Se não funcionar, use o botão alternativo.")
-            st.download_button(
-                "⬇️ Baixar arquivo (.txt) — abrir no RawBT",
-                data=texto_para_imprimir,
-                file_name="pedido_the_rua.txt",
-                mime="text/plain",
-            )
-        except Exception as e:
-            st.error(f"Erro ao preparar impressão Android: {e}")
+    # --- Exibe botões RawBT ---
+    if is_android:
+        texto_para_imprimir = texto.strip().replace("\n\n", "\n")
+        texto_codificado = urllib.parse.quote(texto_para_imprimir)
+        url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
+        url_rawbt = f"rawbt://print?text={texto_codificado}"
+
+        st.success("✅ Android detectado — pronto para imprimir via RawBT.")
+        st.markdown(
+            f"""
+            <div style='margin-top:10px;text-align:center;'>
+                <a href="{url_intent}" target="_blank">
+                    <button style="background:#007bff;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
+                        🖨️ Imprimir via RawBT
+                    </button>
+                </a>
+                &nbsp;
+                <a href="{url_rawbt}" target="_blank">
+                    <button style="background:#28a745;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
+                        🔁 Alternativo (RawBT Link)
+                    </button>
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.download_button(
+            "⬇️ Baixar arquivo (.txt) — abrir no RawBT",
+            data=texto_para_imprimir,
+            file_name="pedido_the_rua.txt",
+            mime="text/plain",
+        )
     else:
-        # Se não detectar Android, exibe alerta
-        st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado.")
+        st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado e abra este sistema pelo navegador (Chrome, Opera ou Edge).")
 
 def imprimir_pedido(pedido):
     texto = f"""
