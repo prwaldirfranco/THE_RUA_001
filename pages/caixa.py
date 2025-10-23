@@ -64,11 +64,6 @@ def _detect_android_env():
     return any(k in os.environ for k in android_keys)
 
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
-    """
-    Impressão automática:
-      - Windows: imprime com win32 (se disponível).
-      - Não-Windows (tablet/web): mostra botões RawBT + download .txt.
-    """
     sistema = platform.system()
     impressora_config = None
 
@@ -82,30 +77,21 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         except Exception:
             impressora_config = None
 
-    # Caso Windows: usa win32print/win32ui (se disponível)
+    # Caso Windows
     if sistema == "Windows":
         try:
-            import win32print
-            import win32ui
-
+            import win32print, win32ui
             printer_name = impressora_config or win32print.GetDefaultPrinter()
             hDC = win32ui.CreateDC()
             hDC.CreatePrinterDC(printer_name)
             hDC.StartDoc(titulo)
             hDC.StartPage()
-
-            # Fonte tamanho ~18 (valor negativo indica pontos)
-            font = win32ui.CreateFont({
-                "name": "Arial",
-                "height": 18 * -1,
-                "weight": 400
-            })
+            font = win32ui.CreateFont({"name": "Arial", "height": -18, "weight": 400})
             hDC.SelectObject(font)
-
             y = 20
             for linha in texto.splitlines():
                 hDC.TextOut(20, y, linha.strip())
-                y += 35  # espaçamento reduzido
+                y += 35
             hDC.EndPage()
             hDC.EndDoc()
             hDC.DeleteDC()
@@ -115,65 +101,54 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
             return
 
-    # Para ambiente não-Windows (web / tablet):
-    # Tentativa de detectar Android via JS (userAgent) quando possível
-    user_agent = ""
+    # --- Android / Web ---
     try:
-        if st_javascript:
-            ua_js = st_javascript("navigator.userAgent.toLowerCase();")
-            if ua_js:
-                user_agent = ua_js
+        from streamlit_javascript import st_javascript
+        user_agent = st_javascript("navigator.userAgent.toLowerCase();")
     except Exception:
         user_agent = ""
 
-    # fallback: uso de variáveis de ambiente
-    is_android_env = _detect_android_env()
-    is_android_ua = False
-    if user_agent and "android" in str(user_agent).lower():
-        is_android_ua = True
+    is_android = "android" in str(user_agent).lower() or _detect_android_env()
 
-    is_android = is_android_env or is_android_ua
-
-    # Preparar texto para RawBT
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
 
-    # URLs RawBT
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
 
-    # Exibir botões RawBT sempre para ambientes não-Windows (melhor UX em tablet via web)
-    st.info("📱 Impressão via RawBT disponível para tablets Android (abrir no dispositivo).")
-    st.markdown(
-        f"""
-        <div style='margin-top:10px;text-align:center;'>
-            <a href="{url_intent}" target="_blank" rel="noopener">
-                <button style="background:#007bff;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
-                    🖨️ Imprimir via RawBT (Intent)
-                </button>
-            </a>
-            &nbsp;
-            <a href="{url_rawbt}" target="_blank" rel="noopener">
-                <button style="background:#28a745;color:white;padding:12px 20px;border:none;border-radius:10px;font-size:17px;">
-                    🔁 Abrir RawBT (rawbt://)
-                </button>
-            </a>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # Mantém os botões fixos na tela até que o usuário realmente clique
+    if "imprimindo" not in st.session_state:
+        st.session_state["imprimindo"] = False
 
-    st.caption("Se o RawBT abrir com o texto, toque em 'Print' dentro do app. Caso não funcione, baixe o arquivo e abra pelo RawBT.")
-    st.download_button(
-        "⬇️ Baixar arquivo (.txt) — abrir no RawBT",
-        data=texto_para_imprimir,
-        file_name="pedido_the_rua.txt",
-        mime="text/plain",
-    )
+    st.session_state["imprimindo"] = True
 
-    # Se detectamos que não é Android (por user-agent/ambiente), mostramos aviso extra
-    if not is_android:
-        st.warning("⚠️ Não detectamos ambiente Android. Se estiver em tablet Android, abra este app no navegador do próprio tablet (Chrome/Edge/Opera) e toque em 'Imprimir via RawBT'.")
+    with st.container():
+        st.info("📱 Pronto para imprimir via RawBT — toque no botão abaixo.")
+        st.markdown(
+            f"""
+            <div style='margin-top:10px;text-align:center;'>
+                <a href="{url_intent}" target="_blank" onclick="setTimeout(()=>window.close(),2000)">
+                    <button style="background:#007bff;color:white;padding:14px 22px;border:none;border-radius:10px;font-size:18px;">
+                        🖨️ Imprimir via RawBT
+                    </button>
+                </a>
+                &nbsp;
+                <a href="{url_rawbt}" target="_blank">
+                    <button style="background:#28a745;color:white;padding:14px 22px;border:none;border-radius:10px;font-size:18px;">
+                        🔁 Alternativo (RawBT Link)
+                    </button>
+                </a>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.caption("Depois de tocar, o RawBT deve abrir com o texto. Toque em **Print** no app para concluir.")
+        st.download_button(
+            "⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
+            data=texto_para_imprimir,
+            file_name="pedido_the_rua.txt",
+            mime="text/plain",
+        )
 
 def imprimir_pedido(pedido):
     texto = f"""
