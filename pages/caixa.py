@@ -67,6 +67,7 @@ def _detect_android_env():
     android_keys = ("ANDROID_BOOTLOGO", "ANDROID_ROOT", "ANDROID_DATA", "ANDROID_ARGUMENT")
     return any(k in os.environ for k in android_keys)
 
+
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     sistema = platform.system()
     impressora_config = None
@@ -81,7 +82,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         except Exception:
             impressora_config = None
 
-    # Caso Windows
+    # Caso Windows — impressão direta
     if sistema == "Windows":
         try:
             import win32print, win32ui
@@ -105,33 +106,35 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
             return
 
-    # --- Android / Web ---
+    # Android (RawBT)
     try:
         user_agent = st_javascript("navigator.userAgent.toLowerCase();") if st_javascript else ""
     except Exception:
         user_agent = ""
 
-    is_android = True
+    is_android = "android" in str(user_agent).lower() or _detect_android_env()
 
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
 
-    # Mantém os botões na tela
-    with st.container():
-        st.info("📱 Pronto para imprimir via RawBT — toque no botão abaixo.")
+    # Mantém os botões fixos e visíveis
+    st.markdown("### 🖨️ Impressão")
+    if is_android:
         st.markdown(
             f"""
-            <div style='margin-top:10px;text-align:center;'>
+            <div style='margin-top:15px;text-align:center;'>
                 <a href="{url_intent}" target="_blank">
-                    <button style="background:#007bff;color:white;padding:14px 22px;border:none;border-radius:10px;font-size:18px;">
+                    <button style="background:#007bff;color:white;padding:14px 24px;
+                                   border:none;border-radius:10px;font-size:18px;">
                         🖨️ Imprimir via RawBT
                     </button>
                 </a>
                 &nbsp;
                 <a href="{url_rawbt}" target="_blank">
-                    <button style="background:#28a745;color:white;padding:14px 22px;border:none;border-radius:10px;font-size:18px;">
+                    <button style="background:#28a745;color:white;padding:14px 24px;
+                                   border:none;border-radius:10px;font-size:18px;">
                         🔁 Alternativo (RawBT Link)
                     </button>
                 </a>
@@ -139,13 +142,17 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             """,
             unsafe_allow_html=True
         )
-        st.caption("Depois de tocar, o RawBT deve abrir. Toque em **Print** no app para concluir.")
+
+        # Download manual opcional
         st.download_button(
-            "⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
+            label="⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
             data=texto_para_imprimir,
             file_name="pedido_the_rua.txt",
             mime="text/plain",
         )
+    else:
+        st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado.")
+
 
 # ---------------------------------------------------
 # Função extra: Teste de Impressão
@@ -237,7 +244,6 @@ def gerar_relatorio_caixa():
 # ---------------------------------------------------
 # Interface
 # ---------------------------------------------------
-
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
 st.caption("Gerencie pedidos, vendas no balcão, comprovantes e impressão via RawBT ou Windows.")
@@ -353,11 +359,11 @@ for pedido in pedidos:
         if pedido.get("observacoes"):
             st.caption(f"✏️ {pedido['observacoes']}")
 
-                        # 💳 Mostra comprovante PIX se houver
+        # 💳 Mostra comprovante PIX se houver
         if pedido.get("pagamento") == "Pix":
             st.markdown("💳 **Pagamento via PIX**")
 
-            # Tenta localizar o comprovante — independentemente do nome do campo
+            # Tenta localizar o comprovante
             comprovante = (
                 pedido.get("comprovante_pix")
                 or pedido.get("comprovante")
@@ -366,7 +372,6 @@ for pedido in pedidos:
                 or pedido.get("upload_pix")
             )
 
-            # Caso não haja referência direta, procura na pasta uploads pelo ID do pedido
             if not comprovante:
                 uploads_dir = "uploads"
                 if os.path.exists(uploads_dir):
@@ -375,7 +380,6 @@ for pedido in pedidos:
                             comprovante = os.path.join(uploads_dir, f)
                             break
 
-            # Exibe e permite baixar o comprovante, se encontrado
             if comprovante:
                 if comprovante.startswith("http"):
                     st.image(comprovante, caption="📄 Comprovante PIX (online)", use_container_width=True)
