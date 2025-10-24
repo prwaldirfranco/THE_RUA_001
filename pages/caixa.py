@@ -102,50 +102,40 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
             return
 
-    # Android (RawBT)
-    try:
-        user_agent = st_javascript("navigator.userAgent.toLowerCase();") if st_javascript else ""
-    except Exception:
-        user_agent = ""
-
-    is_android = "android" in str(user_agent).lower() or _detect_android_env()
-
+    # --- Força exibição RawBT no navegador ---
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
 
-    st.markdown("### 🖨️ Impressão")
-    if is_android:
-        st.markdown(
-            f"""
-            <div style='margin-top:15px;text-align:center;'>
-                <a href="{url_intent}" target="_blank">
-                    <button style="background:#007bff;color:white;padding:14px 24px;
-                                   border:none;border-radius:10px;font-size:18px;">
-                        🖨️ Imprimir via RawBT
-                    </button>
-                </a>
-                &nbsp;
-                <a href="{url_rawbt}" target="_blank">
-                    <button style="background:#28a745;color:white;padding:14px 24px;
-                                   border:none;border-radius:10px;font-size:18px;">
-                        🔁 Alternativo (RawBT Link)
-                    </button>
-                </a>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    st.markdown("### 🖨️ Impressão via RawBT (Android)")
+    st.markdown(
+        f"""
+        <div style='margin-top:15px;text-align:center;'>
+            <a href="{url_intent}" target="_blank">
+                <button style="background:#007bff;color:white;padding:14px 24px;
+                               border:none;border-radius:10px;font-size:18px;">
+                    🖨️ Imprimir via RawBT
+                </button>
+            </a>
+            &nbsp;
+            <a href="{url_rawbt}" target="_blank">
+                <button style="background:#28a745;color:white;padding:14px 24px;
+                               border:none;border-radius:10px;font-size:18px;">
+                    🔁 Alternativo (RawBT Link)
+                </button>
+            </a>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-        st.download_button(
-            label="⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
-            data=texto_para_imprimir,
-            file_name="pedido_the_rua.txt",
-            mime="text/plain",
-        )
-    else:
-        st.warning("⚠️ Impressão local desativada. Use um tablet Android com o app RawBT instalado.")
+    st.download_button(
+        label="⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
+        data=texto_para_imprimir,
+        file_name="pedido_the_rua.txt",
+        mime="text/plain",
+    )
 
 # ---------------------------------------------------
 # Impressão de Pedido
