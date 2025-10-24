@@ -25,27 +25,39 @@ if "logado" not in st.session_state or not st.session_state["logado"]:
 DATA_FILE = "pedidos.json"
 CAIXA_FILE = "caixa.json"
 IMPRESSORAS_FILE = "impressoras.json"
+RELATORIOS_DIR = "relatorios"
+os.makedirs(RELATORIOS_DIR, exist_ok=True)
 
 # ---------------------------------------------------
 # Funções utilitárias
 # ---------------------------------------------------
-def carregar_pedidos():
-    if not os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump([], f)
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
+def carregar_json(path, default):
+    if not os.path.exists(path):
+        return default
+    with open(path, "r", encoding="utf-8") as f:
         try:
             return json.load(f)
         except:
-            return []
+            return default
+
+def salvar_json(path, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+def carregar_pedidos():
+    return carregar_json(DATA_FILE, [])
 
 def salvar_pedidos(pedidos):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(pedidos, f, indent=4, ensure_ascii=False)
+    salvar_json(DATA_FILE, pedidos)
+
+def carregar_caixa():
+    return carregar_json(CAIXA_FILE, {"aberto": False, "valor_inicial": 0.0})
+
+def salvar_caixa(caixa):
+    salvar_json(CAIXA_FILE, caixa)
 
 def excluir_pedido(pedido_id):
-    pedidos = carregar_pedidos()
-    pedidos = [p for p in pedidos if str(p.get("id")) != str(pedido_id)]
+    pedidos = [p for p in carregar_pedidos() if str(p.get("id")) != str(pedido_id)]
     salvar_pedidos(pedidos)
 
 def atualizar_status(pedido_id, novo_status):
@@ -53,9 +65,7 @@ def atualizar_status(pedido_id, novo_status):
     for p in pedidos:
         if str(p.get("id")) == str(pedido_id):
             p["status"] = novo_status
-            salvar_pedidos(pedidos)
-            return True
-    return False
+    salvar_pedidos(pedidos)
 
 # ---------------------------------------------------
 # Impressão automática (Windows ou Android/RawBT)
@@ -168,11 +178,91 @@ Tipo: {pedido['tipo_pedido']}
     imprimir_texto(texto, titulo="Pedido THE RUA")
 
 # ---------------------------------------------------
+# Funções de Caixa e Relatórios
+# ---------------------------------------------------
+def abrir_caixa(valor_inicial):
+    caixa = {
+        "aberto": True,
+        "valor_inicial": valor_inicial,
+        "aberto_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "fechado_em": None,
+    }
+    salvar_caixa(caixa)
+
+def gerar_relatorio_caixa():
+    pedidos = carregar_pedidos()
+    caixa = carregar_caixa()
+    total_geral = sum(p.get("total", 0) for p in pedidos)
+    por_pagamento = {}
+    for p in pedidos:
+        pg = p.get("pagamento", "Outros")
+        por_pagamento[pg] = por_pagamento.get(pg, 0) + p.get("total", 0)
+    rel = f"""
+====== FECHAMENTO THE RUA ======
+Aberto em: {caixa.get('aberto_em')}
+Fechado em: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Valor inicial: R$ {caixa.get('valor_inicial', 0):.2f}
+Total pedidos: {len(pedidos)}
+Total geral: R$ {total_geral:.2f}
+
+Por pagamento:
+"""
+    for pg, valor in por_pagamento.items():
+        rel += f"- {pg}: R$ {valor:.2f}\n"
+    dinheiro = por_pagamento.get("Dinheiro", 0)
+    total_final = caixa.get("valor_inicial", 0) + dinheiro
+    rel += f"""
+==============================
+💰 Total em dinheiro físico: R$ {total_final:.2f}
+==============================
+"""
+    return rel
+
+def fechar_caixa():
+    caixa = carregar_caixa()
+    caixa["aberto"] = False
+    caixa["fechado_em"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    salvar_caixa(caixa)
+    rel = gerar_relatorio_caixa()
+    nome = f"relatorio_{datetime.now().strftime('%Y-%m-%d_%H-%M')}.txt"
+    caminho = os.path.join(RELATORIOS_DIR, nome)
+    with open(caminho, "w", encoding="utf-8") as f:
+        f.write(rel)
+    imprimir_texto(rel, titulo="Fechamento THE RUA")
+    return rel, caminho
+
+# ---------------------------------------------------
 # Interface
 # ---------------------------------------------------
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
-st.caption("Gerencie pedidos, vendas no balcão, comprovantes e impressão via RawBT ou Windows.")
+st.caption("Gerencie pedidos, comprovantes e impressão via RawBT ou Windows.")
+
+# Controle de caixa
+st.sidebar.header("🧾 Controle de Caixa")
+caixa = carregar_caixa()
+
+if not caixa.get("aberto", False):
+    with st.sidebar.form("abrir_caixa_form"):
+        valor_inicial = st.number_input("Valor inicial (R$)", min_value=0.0, step=10.0)
+        if st.form_submit_button("🔓 Abrir Caixa"):
+            abrir_caixa(valor_inicial)
+            st.success("Caixa aberto com sucesso!")
+            st.rerun()
+    st.warning("⚠️ O caixa está fechado. Abra o caixa para usar o sistema.")
+    st.stop()
+else:
+    st.sidebar.success(f"✅ Caixa aberto em: {caixa['aberto_em']}")
+    st.sidebar.info(f"💵 Valor inicial: R$ {caixa['valor_inicial']:.2f}")
+
+    if st.sidebar.button("🔒 Fechar Caixa"):
+        rel, caminho = fechar_caixa()
+        st.success("Caixa fechado com sucesso ✅")
+        st.text_area("📋 Relatório do Dia", rel, height=300)
+        with open(caminho, "rb") as f:
+            st.download_button("⬇️ Baixar Relatório do Dia", f, file_name=os.path.basename(caminho))
+        st.stop()
 
 # --- Teste de impressão ---
 st.sidebar.subheader("🖨️ Impressora Local")
