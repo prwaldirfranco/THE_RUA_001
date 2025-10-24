@@ -353,49 +353,61 @@ for pedido in pedidos:
         if pedido.get("observacoes"):
             st.caption(f"✏️ {pedido['observacoes']}")
 
-        # 💳 Mostra comprovante PIX se houver
+                        # 💳 Mostra comprovante PIX se houver
         if pedido.get("pagamento") == "Pix":
             st.markdown("💳 **Pagamento via PIX**")
-            if pedido.get("comprovante_pix"):
-                arquivo = pedido["comprovante_pix"]
-                ext = os.path.splitext(arquivo)[1].lower()
-                mime_type = mimetypes.guess_type(arquivo)[0] or "application/octet-stream"
 
-                if ext in [".jpg", ".jpeg", ".png"]:
-                    st.image(arquivo, caption="📄 Comprovante PIX", use_container_width=True)
+            # Tenta localizar o comprovante — independentemente do nome do campo
+            comprovante = (
+                pedido.get("comprovante_pix")
+                or pedido.get("comprovante")
+                or pedido.get("arquivo")
+                or pedido.get("anexo")
+                or pedido.get("upload_pix")
+            )
 
-                try:
-                    with open(arquivo, "rb") as f:
-                        st.download_button(
-                            label=f"⬇️ Baixar Comprovante ({os.path.basename(arquivo)})",
-                            data=f,
-                            file_name=os.path.basename(arquivo),
-                            mime=mime_type,
-                        )
-                except Exception:
-                    st.error("❌ Erro ao carregar comprovante PIX. Verifique o caminho do arquivo.")
+            # Caso não haja referência direta, procura na pasta uploads pelo ID do pedido
+            if not comprovante:
+                uploads_dir = "uploads"
+                if os.path.exists(uploads_dir):
+                    for f in os.listdir(uploads_dir):
+                        if str(pedido["id"]) in f:
+                            comprovante = os.path.join(uploads_dir, f)
+                            break
+
+            # Exibe e permite baixar o comprovante, se encontrado
+            if comprovante:
+                if comprovante.startswith("http"):
+                    st.image(comprovante, caption="📄 Comprovante PIX (online)", use_container_width=True)
+                    st.markdown(
+                        f"""
+                        <a href="{comprovante}" download target="_blank">
+                            <button style="background:#007bff;color:white;padding:10px 18px;
+                                          border:none;border-radius:8px;font-size:16px;margin-top:8px;">
+                                ⬇️ Baixar Comprovante
+                            </button>
+                        </a>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                else:
+                    ext = os.path.splitext(comprovante)[1].lower()
+                    mime_type = mimetypes.guess_type(comprovante)[0] or "application/octet-stream"
+
+                    if os.path.exists(comprovante):
+                        if ext in [".jpg", ".jpeg", ".png"]:
+                            st.image(comprovante, caption="📄 Comprovante PIX", use_container_width=True)
+                        try:
+                            with open(comprovante, "rb") as f:
+                                st.download_button(
+                                    label=f"⬇️ Baixar Comprovante ({os.path.basename(comprovante)})",
+                                    data=f,
+                                    file_name=os.path.basename(comprovante),
+                                    mime=mime_type,
+                                )
+                        except Exception:
+                            st.warning("⚠️ Não foi possível gerar o download do comprovante.")
+                    else:
+                        st.warning("⚠️ O arquivo de comprovante não foi encontrado no servidor.")
             else:
-                st.info("Aguardando envio do comprovante PIX pelo cliente...")
-
-    with col2:
-        st.markdown("#### Itens")
-        for item in pedido.get("produtos", []):
-            st.markdown(f"- {item.get('quantidade', 0)}x {item.get('nome', '')} (R$ {item.get('preco', 0):.2f})")
-
-    with col3:
-        st.markdown("#### Ações")
-        st.write(f"🟢 **{pedido['status']}**")
-
-        if pedido["status"] == "Aguardando aceite":
-            if st.button("✅ Aceitar", key=f"aceitar_{pedido['id']}"):
-                atualizar_status(pedido["id"], "Em preparo")
-                st.success("Pedido aceito.")
-                st.rerun()
-
-        if st.button("🖨️ Imprimir", key=f"print_{pedido['id']}"):
-            imprimir_pedido(pedido)
-
-        if st.button("🗑️ Excluir", key=f"del_{pedido['id']}"):
-            excluir_pedido(pedido['id'])
-            st.warning("Pedido excluído.")
-            st.rerun()
+                st.info("📄 Nenhum comprovante localizado para este pedido (verifique uploads/).")
