@@ -82,6 +82,12 @@ with st.form("cadastro_produto_form"):
     preco = st.number_input("Preço (R$)", min_value=0.0, step=0.5)
     imagem = st.file_uploader("Imagem do produto", type=["png", "jpg", "jpeg"])
 
+    # Novo: ingredientes e extras
+    st.markdown("**Ingredientes padrão** (um por linha). Cliente poderá desmarcar ao pedir.")
+    ingredientes_text = st.text_area("Ingredientes (ex: Pão\nCarne\nQueijo)")
+    st.markdown("**Extras opcionais** — formato por linha: Nome:preco (ex: Bacon:3.50)")
+    extras_text = st.text_area("Extras (ex:\nBacon:3.50\nCheddar:2.00)")
+
     enviado = st.form_submit_button("💾 Salvar Produto")
     if enviado:
         if not nome or preco <= 0:
@@ -96,12 +102,37 @@ with st.form("cadastro_produto_form"):
                 with open(imagem_path, "wb") as f:
                     f.write(imagem.getbuffer())
 
+            # Parse ingredientes
+            ingredientes = []
+            if ingredientes_text:
+                ingredientes = [line.strip() for line in ingredientes_text.splitlines() if line.strip()]
+
+            # Parse extras
+            extras = []
+            if extras_text:
+                for line in extras_text.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if ":" in line:
+                        nome_extra, preco_extra = line.split(":", 1)
+                        try:
+                            preco_val = float(preco_extra.replace(",", ".").strip())
+                        except:
+                            preco_val = 0.0
+                        extras.append({"nome": nome_extra.strip(), "preco": preco_val})
+                    else:
+                        # sem preco, ignora ou adiciona com preco 0
+                        extras.append({"nome": line, "preco": 0.0})
+
             produto = {
                 "id": novo_id,
                 "nome": nome,
                 "descricao": descricao,
                 "preco": preco,
                 "imagem": imagem_path.replace("\\", "/"),
+                "ingredientes": ingredientes,
+                "extras": extras,
                 "criado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
 
@@ -136,6 +167,12 @@ else:
                 st.write(p.get("descricao", ""))
                 st.write(f"💰 **R$ {p['preco']:.2f}**")
                 st.caption(f"🕒 Cadastrado em: {p.get('criado_em', '-')}")
+                # mostra ingredientes e extras no admin
+                if p.get("ingredientes"):
+                    st.markdown("**Ingredientes (padrão):** " + ", ".join(p.get("ingredientes", [])))
+                if p.get("extras"):
+                    extras_str = ", ".join([f"{e['nome']} (+R$ {float(e['preco']):.2f})" for e in p.get("extras", [])])
+                    st.markdown("**Extras:** " + extras_str)
 
             with col3:
                 if st.button("✏️ Editar", key=f"edit_{p['id']}"):
@@ -163,6 +200,13 @@ if "editando" in st.session_state:
             preco = st.number_input("Preço (R$)", value=float(produto_editar.get("preco", 0.0)), step=0.5)
             nova_imagem = st.file_uploader("Alterar imagem (opcional)", type=["png", "jpg", "jpeg"])
 
+            # show current ingredientes/extras as editable textareas
+            ing_text = "\n".join(produto_editar.get("ingredientes", []))
+            extras_lines = "\n".join([f"{e['nome']}:{e['preco']}" for e in produto_editar.get("extras", [])])
+
+            ingredientes_text = st.text_area("Ingredientes (um por linha)", value=ing_text)
+            extras_text = st.text_area("Extras (Nome:preco por linha)", value=extras_lines)
+
             enviar_edicao = st.form_submit_button("💾 Salvar Alterações")
             if enviar_edicao:
                 produto_editar["nome"] = nome
@@ -174,6 +218,26 @@ if "editando" in st.session_state:
                     with open(imagem_path, "wb") as f:
                         f.write(nova_imagem.getbuffer())
                     produto_editar["imagem"] = imagem_path.replace("\\", "/")
+
+                # parse ingredientes
+                produto_editar["ingredientes"] = [line.strip() for line in ingredientes_text.splitlines() if line.strip()]
+
+                # parse extras
+                extras_new = []
+                for line in extras_text.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if ":" in line:
+                        nome_extra, preco_extra = line.split(":", 1)
+                        try:
+                            preco_val = float(preco_extra.replace(",", ".").strip())
+                        except:
+                            preco_val = 0.0
+                        extras_new.append({"nome": nome_extra.strip(), "preco": preco_val})
+                    else:
+                        extras_new.append({"nome": line, "preco": 0.0})
+                produto_editar["extras"] = extras_new
 
                 salvar_produtos(produtos)
                 del st.session_state["editando"]
