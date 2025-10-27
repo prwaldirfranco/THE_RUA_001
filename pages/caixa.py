@@ -68,8 +68,100 @@ def atualizar_status(pedido_id, novo_status):
     salvar_pedidos(pedidos)
 
 # ---------------------------------------------------
-# Impressão automática (Windows ou Android/RawBT)
+# Painel persistente de impressão (mostra quando existe texto a imprimir)
 # ---------------------------------------------------
+def _render_painel_impressao_persistente():
+    """
+    Se st.session_state['mostrar_painel_impressao'] for True, exibe o painel com
+    botões RawBT / fallback / download / fechar painel.
+    """
+    if not st.session_state.get("mostrar_painel_impressao"):
+        return
+
+    texto_para_imprimir = st.session_state.get("ultimo_texto_impressao", "")
+    if not texto_para_imprimir:
+        # nada a mostrar
+        st.session_state["mostrar_painel_impressao"] = False
+        return
+
+    texto_codificado = urllib.parse.quote(texto_para_imprimir)
+    url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
+    url_rawbt = f"rawbt://print?text={texto_codificado}"
+
+    cont = st.container()
+    with cont:
+        st.markdown("---")
+        st.markdown("### 🖨️ Painel de Impressão (RawBT / Download)")
+        st.markdown(
+            f"""
+            <div style='margin-top:12px;text-align:center;'>
+                <!-- Intent: abre RawBT; usamos window.open em JS para abrir nova aba -->
+                <button onclick="window.open('{url_intent}', '_blank')" style="background:#007bff;color:white;padding:12px 20px;border:none;border-radius:8px;font-size:16px;margin-right:8px;">
+                    🖨️ Imprimir via RawBT
+                </button>
+
+                <button onclick="window.open('{url_rawbt}', '_blank')" style="background:#28a745;color:white;padding:12px 20px;border:none;border-radius:8px;font-size:16px;margin-right:8px;">
+                    🔁 Alternativo (RawBT Link)
+                </button>
+
+                <button id="fechar_painel_btn" style="background:#6c757d;color:white;padding:12px 20px;border:none;border-radius:8px;font-size:16px;">
+                    ✖️ Fechar painel
+                </button>
+            </div>
+            <script>
+            // O botão de fechar comunica ao Streamlit via alteração de localStorage
+            // e o usuário deve então clicar no botão 'Fechar painel' para remover a UI.
+            document.getElementById('fechar_painel_btn').onclick = function() {{
+                try {{
+                    localStorage.setItem("the_rua_fechar_painel_impressao", "1");
+                }} catch(e){{ }}
+                // Tenta forçar um pequeno reload (não obrigatório)
+                setTimeout(()=>location.reload(), 200);
+            }};
+            </script>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # Download em .txt
+        st.download_button(
+            label="⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
+            data=texto_para_imprimir,
+            file_name="pedido_the_rua.txt",
+            mime="text/plain",
+        )
+
+        st.info("Toque em 'Imprimir via RawBT' — se o RawBT abrir, confirme 'Print' no app. Quando terminar, clique em 'Fechar painel'.")
+
+    # Detecta se o botão JS foi acionado definindo localStorage (navegador)
+    # Em seguida limpa o painel.
+    try:
+        # st_javascript pode retornar a flag se estiver disponível
+        if st_javascript:
+            fechar_flag = st_javascript("localStorage.getItem('the_rua_fechar_painel_impressao');")
+            if fechar_flag:
+                # limpa localStorage via JS e fecha painel
+                st_javascript("localStorage.removeItem('the_rua_fechar_painel_impressao');")
+                st.session_state["mostrar_painel_impressao"] = False
+                st.experimental_rerun()
+        else:
+            # fallback: se o usuário clicar no botão "Fechar painel" dentro do Streamlit (adicionado abaixo)
+            pass
+    except Exception:
+        pass
+
+    # Botão de fechar painel (fallback, via Python)
+    if st.button("✖️ Fechar painel de impressão (se ainda visível)"):
+        st.session_state["mostrar_painel_impressao"] = False
+        st.experimental_rerun()
+
+# Render painel de impressão (se ativo) sempre no topo da página
+if "mostrar_painel_impressao" not in st.session_state:
+    st.session_state["mostrar_painel_impressao"] = False
+if "ultimo_texto_impressao" not in st.session_state:
+    st.session_state["ultimo_texto_impressao"] = ""
+_render_painel_impressao_persistente()
+
 # ---------------------------------------------------
 # Impressão automática (Windows ou Android/RawBT)
 # ---------------------------------------------------
@@ -78,6 +170,10 @@ def _detect_android_env():
     return any(k in os.environ for k in android_keys)
 
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
+    """
+    - Mantém impressão direta no Windows (win32).
+    - Para web/Android: prepara texto, guarda em session_state e mostra painel persistente de impressão.
+    """
     sistema = platform.system()
     impressora_config = None
 
@@ -115,40 +211,15 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir (Windows): {e}")
             return
 
-    # --- Força exibição RawBT no navegador ---
+    # Para web/Android: prepara texto e mostra painel fixo de impressão (RawBT)
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
-    texto_codificado = urllib.parse.quote(texto_para_imprimir)
-    url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
-    url_rawbt = f"rawbt://print?text={texto_codificado}"
 
-    st.markdown("### 🖨️ Impressão via RawBT (Android)")
-    st.markdown(
-        f"""
-        <div style='margin-top:15px;text-align:center;'>
-            <a href="{url_intent}" target="_blank">
-                <button style="background:#007bff;color:white;padding:14px 24px;
-                               border:none;border-radius:10px;font-size:18px;">
-                    🖨️ Imprimir via RawBT
-                </button>
-            </a>
-            &nbsp;
-            <a href="{url_rawbt}" target="_blank">
-                <button style="background:#28a745;color:white;padding:14px 24px;
-                               border:none;border-radius:10px;font-size:18px;">
-                    🔁 Alternativo (RawBT Link)
-                </button>
-            </a>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # grava em sessão para painel persistente
+    st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
+    st.session_state["mostrar_painel_impressao"] = True
 
-    st.download_button(
-        label="⬇️ Baixar arquivo (.txt) — abrir manualmente no RawBT",
-        data=texto_para_imprimir,
-        file_name="pedido_the_rua.txt",
-        mime="text/plain",
-    )
+    # renderiza painel imediatamente
+    _render_painel_impressao_persistente()
 
 # ---------------------------------------------------
 # Impressão de Pedido
@@ -166,16 +237,36 @@ Tipo: {pedido['tipo_pedido']}
         texto += f"Endereço: {pedido['endereco']}\n"
 
     texto += "\nItens:\n"
+
     for item in pedido.get("produtos", []):
-        texto += f"- {item.get('quantidade', 0)}x {item.get('nome', '')} R$ {item.get('preco', 0) * item.get('quantidade', 0):.2f}\n"
+        nome = item.get("nome", "")
+        qtd = item.get("quantidade", 1)
+        preco = float(item.get("preco", 0))
+        subtotal = preco * qtd
+        texto += f"- {qtd}x {nome} R$ {subtotal:.2f}\n"
+
+        # Ingredientes removidos
+        removidos = item.get("removidos", [])
+        if removidos:
+            for r in removidos:
+                texto += f"    - sem {r}\n"
+
+        # Extras adicionados
+        extras = item.get("extras", [])
+        if extras:
+            for ex in extras:
+                texto += f"    + {ex.get('qtd',1)}x {ex.get('nome')} (+R$ {float(ex.get('preco',0)):.2f})\n"
 
     texto += f"\nTotal: R$ {pedido.get('total', 0):.2f}\nPagamento: {pedido.get('pagamento', '')}\n"
+
     if pedido.get("troco_para"):
         texto += f"Troco para: {pedido['troco_para']}\n"
     if pedido.get("observacoes"):
         texto += f"Obs: {pedido['observacoes']}\n"
+
     texto += "\n==============================\n"
     imprimir_texto(texto, titulo="Pedido THE RUA")
+
 
 # ---------------------------------------------------
 # Funções de Caixa e Relatórios
@@ -311,9 +402,9 @@ for i, pedido in enumerate(pedidos):
             if not comprovante:
                 uploads_dir = "uploads"
                 if os.path.exists(uploads_dir):
-                    for f in os.listdir(uploads_dir):
-                        if str(pedido["id"]) in f:
-                            comprovante = os.path.join(uploads_dir, f)
+                    for f_name in os.listdir(uploads_dir):
+                        if str(pedido["id"]) in f_name:
+                            comprovante = os.path.join(uploads_dir, f_name)
                             break
             if comprovante:
                 ext = os.path.splitext(comprovante)[1].lower()
@@ -328,6 +419,21 @@ for i, pedido in enumerate(pedidos):
                             file_name=os.path.basename(comprovante),
                             mime=mime_type,
                             key=f"baixar_{pedido['id']}"
+                        )
+                else:
+                    # Se for URL remoto (http...), exibe botão de download link
+                    if isinstance(comprovante, str) and comprovante.startswith("http"):
+                        st.image(comprovante, caption="📄 Comprovante PIX (online)", use_container_width=True)
+                        st.markdown(
+                            f"""
+                            <a href="{comprovante}" download target="_blank">
+                                <button style="background:#007bff;color:white;padding:10px 18px;
+                                              border:none;border-radius:8px;font-size:16px;margin-top:8px;">
+                                    ⬇️ Baixar Comprovante
+                                </button>
+                            </a>
+                            """,
+                            unsafe_allow_html=True
                         )
 
     # --- Coluna 2 ---
