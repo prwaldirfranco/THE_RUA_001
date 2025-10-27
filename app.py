@@ -101,16 +101,74 @@ def render_cardapio_publico():
             st.subheader(produto["nome"])
             st.caption(produto.get("descricao", ""))
             st.markdown(f"💰 **R$ {float(produto['preco']):.2f}**")
-            qtd = st.number_input(f"Qtd {produto['nome']}", min_value=0, step=1, key=f"q_{produto['id']}")
+
+            # Ingredientes padrão (checkboxes). Checked = incluído. Uncheck to remove.
+            ingredientes = produto.get("ingredientes", []) or []
+            if ingredientes:
+                st.markdown("**Ingredientes (marque para manter / desmarque para remover):**")
+                kept = []
+                for idx, ing in enumerate(ingredientes):
+                    key = f"prod_{produto['id']}_ing_{idx}"
+                    # default True
+                    checked = st.checkbox(ing, value=True, key=key)
+                    if checked:
+                        kept.append(ing)
+
+            # Extras opcionais (multiselect + quantidade)
+            extras = produto.get("extras", []) or []  # list of {"nome","preco"}
+            extra_selected = []
+            extra_qtds = {}
+            if extras:
+                st.markdown("**Extras opcionais:**")
+                options = [f"{e['nome']} (+R$ {float(e['preco']):.2f})" for e in extras]
+                sel_key = f"prod_{produto['id']}_extras_sel"
+                # Use multiselect so user can choose multiple extras
+                escolha_extras = st.multiselect("Selecione extras", options, key=sel_key)
+                # map selection back to extras list and ask quantity
+                for opt in escolha_extras:
+                    # find matching extra by name
+                    nome = opt.split(" (+R$")[0]
+                    extra_item = next((e for e in extras if e["nome"] == nome), None)
+                    if extra_item:
+                        qkey = f"prod_{produto['id']}_extra_qtd_{nome}"
+                        qty = st.number_input(f"Qtd {nome}", min_value=1, value=1, step=1, key=qkey)
+                        extra_selected.append({"nome": nome, "preco": float(extra_item["preco"]), "qtd": int(qty)})
+                        extra_qtds[nome] = int(qty)
+
+            # Quantidade do produto
+            qtd_key = f"q_{produto['id']}"
+            qtd = st.number_input(f"Qtd {produto['nome']}", min_value=0, step=1, key=qtd_key)
+
             if qtd > 0:
                 if st.button(f"Adicionar {produto['nome']}", key=f"add_{produto['id']}"):
-                    st.session_state.carrinho.append({
+                    # compute item total: base price * qtd + extras
+                    base = float(produto["preco"])
+                    extras_total = sum(e["preco"] * e["qtd"] for e in extra_selected)
+                    subtotal = (base + extras_total) * qtd
+
+                    # store chosen removals (ingredients removed)
+                    removidos = []
+                    for idx, ing in enumerate(ingredientes):
+                        key = f"prod_{produto['id']}_ing_{idx}"
+                        try:
+                            if not st.session_state.get(key, True):
+                                removidos.append(ing)
+                        except Exception:
+                            # fallback: if checkbox missing, assume kept
+                            pass
+
+                    item = {
                         "id": produto["id"],
                         "nome": produto["nome"],
                         "quantidade": qtd,
-                        "preco": float(produto["preco"])
-                    })
+                        "preco": base,
+                        "subtotal": subtotal,
+                        "removidos": removidos,           # lista de ingredientes removidos
+                        "extras": extra_selected,         # lista de {nome, preco, qtd}
+                    }
+                    st.session_state.carrinho.append(item)
                     st.success(f"{produto['nome']} adicionado ao carrinho!")
+                    st.rerun()
 
     st.divider()
     st.header("🛒 Seu Carrinho")
@@ -119,9 +177,17 @@ def render_cardapio_publico():
     else:
         total = 0
         for i, item in enumerate(st.session_state.carrinho):
-            sub = item["quantidade"] * item["preco"]
+            sub = item["subtotal"]
             total += sub
             st.write(f"**{item['quantidade']}x {item['nome']}** — R$ {sub:.2f}")
+            # show removidos
+            if item.get("removidos"):
+                for r in item["removidos"]:
+                    st.caption(f" - Sem: {r}")
+            # show extras
+            if item.get("extras"):
+                for ex in item["extras"]:
+                    st.caption(f" + {ex['qtd']}x {ex['nome']} (+R$ {ex['preco']:.2f} cada)")
             if st.button(f"❌ Remover {item['nome']}", key=f"rm_{i}"):
                 st.session_state.carrinho.pop(i)
                 st.rerun()
@@ -211,6 +277,12 @@ def render_rastreamento():
         st.write("🧾 Itens:")
         for item in p.get("produtos", []):
             st.write(f"- {item.get('quantidade')}x {item.get('nome')} (R$ {item.get('preco'):.2f})")
+            if item.get("removidos"):
+                st.write(f"  - Sem: {', '.join(item.get('removidos'))}")
+            if item.get("extras"):
+                st.write("  + Extras:")
+                for ex in item.get("extras"):
+                    st.write(f"    - {ex['qtd']}x {ex['nome']} (+R$ {ex['preco']:.2f} cada)")
         st.write(f"💵 Total: R$ {p.get('total',0):.2f}")
         if p.get("comprovante") and os.path.exists(p.get("comprovante")):
             with open(p["comprovante"], "rb") as f:
