@@ -1,0 +1,17 @@
+
+====== FECHAMENTO THE RUA ======
+Aberto em: 2025-10-27 12:39:41
+Fechado em: 2025-10-27 19:15:28
+
+Valor inicial: R$ 40.00
+Total pedidos: 10
+Total geral: R$ 247.50
+
+Por pagamento:
+- Pix: R$ 160.50
+- Dinheiro: R$ 67.50
+- Cartão: R$ 19.50
+
+==============================
+💰 Total em dinheiro físico: R$ 107.50
+==============================

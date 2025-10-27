@@ -1,25 +1,244 @@
 [
     {
-        "id": "1761070844",
-        "codigo_rastreio": "7887",
-        "nome": "asdsad",
-        "telefone": "3333333333",
+        "id": "1761317219",
+        "codigo_rastreio": "9509",
+        "nome": "ASDASD",
+        "telefone": "ASDASD",
         "tipo_pedido": "Entrega",
-        "endereco": "RUA SILAS FONTES CAETANO, 88, CASA 3",
-        "pagamento": "Dinheiro",
-        "troco_para": "100",
-        "comprovante": "",
-        "observacoes": "eadsadsad",
+        "endereco": "ASDSAD",
+        "pagamento": "Pix",
+        "troco_para": "",
+        "comprovante": "uploads\\1761317219_01.png",
+        "observacoes": "ASDASD",
         "produtos": [
             {
                 "id": "1",
-                "nome": "sada",
+                "nome": "nº 15 - X PICANHA",
                 "quantidade": 1,
-                "preco": 333.0
+                "preco": 16.5
             }
         ],
         "status": "Entregue",
-        "data": "2025-10-21 15:20:44",
-        "total": 333.0
+        "data": "2025-10-24 11:46:59",
+        "total": 16.5
+    },
+    {
+        "id": "1761321974",
+        "codigo_rastreio": "6880",
+        "nome": "fghfh",
+        "telefone": "hgfhfgh",
+        "tipo_pedido": "Entrega",
+        "endereco": "fghgfh",
+        "pagamento": "Pix",
+        "troco_para": "",
+        "comprovante": "uploads\\1761321974_01.png",
+        "observacoes": "fghgfh",
+        "produtos": [
+            {
+                "id": "1",
+                "nome": "nº 15 - X PICANHA",
+                "quantidade": 3,
+                "preco": 16.5
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-24 13:06:14",
+        "total": 49.5
+    },
+    {
+        "id": "1761322230",
+        "codigo_rastreio": "2664",
+        "nome": "411651",
+        "telefone": "2343243243",
+        "tipo_pedido": "Entrega",
+        "endereco": "234234234",
+        "pagamento": "Pix",
+        "troco_para": "",
+        "comprovante": "uploads\\1761322230_03.png",
+        "observacoes": "234324",
+        "produtos": [
+            {
+                "id": "1",
+                "nome": "nº 15 - X PICANHA",
+                "quantidade": 2,
+                "preco": 16.5
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-24 13:10:30",
+        "total": 33.0
+    },
+    {
+        "id": "1761341487",
+        "codigo_rastreio": "3232",
+        "nome": "OFERTA",
+        "telefone": "21231321",
+        "tipo_pedido": "Entrega",
+        "endereco": "Lote Nova Canaã\nCasa 01",
+        "pagamento": "Pix",
+        "troco_para": "",
+        "comprovante": "uploads\\1761341487_XTUDO.png",
+        "observacoes": "",
+        "produtos": [
+            {
+                "id": "2",
+                "nome": "Nº 18 - ART DUPLO BACON",
+                "quantidade": 1,
+                "preco": 22.5
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-24 18:31:27",
+        "total": 22.5
+    },
+    {
+        "id": "1761569816",
+        "codigo_rastreio": "7415",
+        "nome": "gdfg",
+        "telefone": "dfgdfg",
+        "tipo_pedido": "Entrega",
+        "endereco": "dfgdfg",
+        "pagamento": "Pix",
+        "troco_para": "",
+        "comprovante": "",
+        "observacoes": "dfgdfgdfg",
+        "produtos": [
+            {
+                "id": "1",
+                "nome": "nº 15 - X PICANHA",
+                "quantidade": 1,
+                "preco": 16.5
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-27 09:56:56",
+        "total": 16.5,
+        "entregue_em": "2025-10-27 12:45:41"
+    },
+    {
+        "id": "1761571403",
+        "codigo_rastreio": "2196",
+        "nome": "admin",
+        "telefone": "123213",
+        "tipo_pedido": "Entrega",
+        "endereco": "123123123",
+        "pagamento": "Dinheiro",
+        "troco_para": "",
+        "comprovante": "",
+        "observacoes": "123213",
+        "produtos": [
+            {
+                "id": "2",
+                "nome": "Nº 18 - ART DUPLO BACON",
+                "quantidade": 1,
+                "preco": 22.5,
+                "subtotal": 22.5,
+                "removidos": [
+                    "HAMBURGUER",
+                    "CHEDDAR",
+                    "BACON"
+                ],
+                "extras": []
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-27 10:23:23",
+        "total": 22.5,
+        "entregue_em": "2025-10-27 12:45:36"
+    },
+    {
+        "id": "1761579546",
+        "codigo_rastreio": "6078",
+        "nome": "Sua Igreja",
+        "telefone": "admin",
+        "tipo_pedido": "Consumir no local",
+        "endereco": "",
+        "pagamento": "Dinheiro",
+        "troco_para": "",
+        "comprovante": "",
+        "observacoes": "",
+        "produtos": [
+            {
+                "id": "2",
+                "nome": "Nº 18 - ART DUPLO BACON",
+                "quantidade": 1,
+                "preco": 22.5
+            }
+        ],
+        "status": "Pronto",
+        "data": "2025-10-27 12:39:06",
+        "total": 22.5
+    },
+    {
+        "id": "1761580748",
+        "codigo_rastreio": "9935",
+        "nome": "hfhgh",
+        "telefone": "fghfgh",
+        "tipo_pedido": "Entrega",
+        "endereco": "fghfgh",
+        "pagamento": "Cartão",
+        "troco_para": "",
+        "comprovante": "",
+        "observacoes": "fghfgh",
+        "produtos": [
+            {
+                "id": "3",
+                "nome": "Nº 19",
+                "quantidade": 1,
+                "preco": 19.5
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-27 12:59:08",
+        "total": 19.5
+    },
+    {
+        "id": "1761580881",
+        "codigo_rastreio": "2722",
+        "nome": "sdfsdf",
+        "telefone": "sdfsdf",
+        "tipo_pedido": "Entrega",
+        "endereco": "sdfsdf",
+        "pagamento": "Dinheiro",
+        "troco_para": "",
+        "comprovante": "",
+        "observacoes": "sdf",
+        "produtos": [
+            {
+                "id": "2",
+                "nome": "Nº 18 - ART DUPLO BACON",
+                "quantidade": 1,
+                "preco": 22.5
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-27 13:01:21",
+        "total": 22.5
+    },
+    {
+        "id": "1761603089",
+        "codigo_rastreio": "1028",
+        "nome": "Waldir Franco Mesquita Junior",
+        "telefone": "22981810265",
+        "tipo_pedido": "Entrega",
+        "endereco": "Lote Nova Canaã\nCasa 01",
+        "pagamento": "Pix",
+        "troco_para": "",
+        "comprovante": "uploads\\1761603089_01.png",
+        "observacoes": "asdasd",
+        "produtos": [
+            {
+                "id": "2",
+                "nome": "Nº 18 - ART DUPLO BACON",
+                "quantidade": 1,
+                "preco": 22.5,
+                "subtotal": 22.5,
+                "removidos": [],
+                "extras": []
+            }
+        ],
+        "status": "Entregue",
+        "data": "2025-10-27 19:11:29",
+        "total": 22.5
     }
 ]

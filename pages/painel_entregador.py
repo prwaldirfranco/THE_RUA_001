@@ -3,15 +3,38 @@ import json
 import os
 from datetime import datetime
 
+# ============================
+# Verificação de login
+# ============================
 if "logado" not in st.session_state or not st.session_state["logado"]:
     st.warning("⚠️ Acesso restrito. Faça login para continuar.")
     st.stop()
 
-DATA_FILE = "pedidos.json"
+# ============================
+# Cabeçalho com botões (Atualizar + Sair)
+# ============================
+col1, col2, col3 = st.columns([5, 1, 1])
+with col1:
+    st.title("🚚 Painel do Entregador")
+    st.caption("Visualize e confirme as entregas dos pedidos prontos para envio.")
+with col2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🔄 Atualizar", key="refresh_entregador"):
+        st.rerun()
+with col3:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🚪 Sair", key="logout_entregador"):
+        if os.path.exists("session.json"):
+            os.remove("session.json")
+        st.session_state.clear()
+        st.success("Sessão encerrada.")
+        st.rerun()
 
 # ============================
 # Funções auxiliares
 # ============================
+DATA_FILE = "pedidos.json"
+
 def carregar_pedidos():
     if not os.path.exists(DATA_FILE):
         with open(DATA_FILE, "w", encoding="utf-8") as f:
@@ -36,17 +59,12 @@ def atualizar_status(pedido_id, novo_status):
     return False
 
 # ============================
-# Interface do Entregador
+# Interface principal
 # ============================
-st.set_page_config(page_title="Entregador - POS-80", layout="wide")
-st.title("🚚 Painel do Entregador")
-st.caption("Visualize e confirme as entregas dos pedidos prontos para envio.")
-
 pedidos = carregar_pedidos()
 if not pedidos:
     st.info("Nenhum pedido disponível para entrega no momento.")
 else:
-    # Filtrar pedidos prontos para entrega ou em rota
     pedidos_entrega = [p for p in pedidos if p.get("status") in ["Em rota de entrega", "Pronto"] and p.get("tipo_pedido") == "Entrega"]
 
     if not pedidos_entrega:
@@ -91,6 +109,5 @@ else:
                     elif status_atual == "Entregue":
                         st.info("✅ Entrega concluída.")
 
-# Rodapé
 st.markdown("---")
-st.caption("🔄 Atualize a página para ver novos pedidos prontos para entrega.")
+st.caption("🔄 Use o botão **Atualizar** acima para ver novos pedidos prontos para entrega.")

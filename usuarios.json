@@ -2,16 +2,25 @@
     {
         "usuario": "admin",
         "senha": "1234",
-        "nome": "Administrador"
+        "nome": "Administrador",
+        "cargo": "admin"
     },
     {
         "usuario": "caixa",
         "senha": "1234",
-        "nome": "Caixa"
+        "nome": "caixa",
+        "cargo": "caixa"
     },
     {
         "usuario": "cozinha",
         "senha": "1234",
-        "nome": "Cozinha"
+        "nome": "cozinha",
+        "cargo": "cozinha"
+    },
+    {
+        "usuario": "entregador",
+        "senha": "1234",
+        "nome": "entregador",
+        "cargo": "entregador"
     }
 ]

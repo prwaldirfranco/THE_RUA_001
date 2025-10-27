@@ -1,10 +1,57 @@
 [
     {
         "id": "1",
-        "nome": "sada",
-        "descricao": "sad",
-        "preco": 333.0,
-        "imagem": "uploads/produtos/1761070810_1761058329_01.png",
-        "criado_em": "2025-10-21 15:20:10"
+        "nome": "nº 15 - X PICANHA",
+        "descricao": "hambúrguer feito com carne de picanha, queijo derretido, e outros ingredientes como pão, alface, tomate, molho e batata palha",
+        "preco": 16.5,
+        "imagem": "uploads/produtos/1761316785_XTUDO.png",
+        "criado_em": "2025-10-24 11:39:45"
+    },
+    {
+        "id": "2",
+        "nome": "Nº 18 - ART DUPLO BACON",
+        "descricao": "Dois hambúrgueres (artesanais , queijo (cheddar derretido), fatias de bacon, e é servido em um pão de hambúrguer artesanal, como brioche",
+        "preco": 22.5,
+        "imagem": "uploads/produtos/1761341437_XTUDO.png",
+        "ingredientes": [
+            "HAMBURGUER",
+            "CHEDDAR",
+            "BACON"
+        ],
+        "opcionais": [],
+        "criado_em": "2025-10-24 18:30:37"
+    },
+    {
+        "id": "3",
+        "nome": "Nº 19",
+        "descricao": "Dois hambúrgueres (artesanais , queijo (cheddar derretido), fatias de bacon, e é servido em um pão de hambúrguer artesanal, como brioche",
+        "preco": 19.5,
+        "imagem": "",
+        "ingredientes": [
+            "HAMBURGUER",
+            "CHEDDAR",
+            "BACON",
+            "QUEIJO",
+            "SALADA"
+        ],
+        "extras": [
+            {
+                "nome": "Bacon",
+                "preco": 3.5
+            },
+            {
+                "nome": "Cheddar",
+                "preco": 3.5
+            },
+            {
+                "nome": "Ovo",
+                "preco": 2.0
+            },
+            {
+                "nome": "CarneART",
+                "preco": 6.5
+            }
+        ],
+        "criado_em": "2025-10-27 10:26:49"
     }
 ]
