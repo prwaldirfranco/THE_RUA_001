@@ -98,6 +98,7 @@ def _render_painel_impressao_persistente():
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
     ts = int(datetime.now().timestamp())
+    file_name = f"pedido_the_rua_{ts}.txt"
 
     with st.container():
         st.markdown("---")
@@ -118,9 +119,14 @@ def _render_painel_impressao_persistente():
                 </button>
                 <button id="fechar_painel_btn" 
                     style="background:#6c757d;color:white;padding:12px 20px;
-                    border:none;border-radius:8px;font-size:16px;">
+                    border:none;border-radius:8px;font-size:16px;margin-right:8px;">
                     ✖️ Fechar painel
                 </button>
+                <a href="data:text/plain;charset=utf-8,{urllib.parse.quote(texto_para_imprimir)}" 
+                   download="{file_name}" 
+                   style="background:#ffc107;color:black;padding:12px 20px;border:none;border-radius:8px;font-size:16px;">
+                    ⬇️ Baixar arquivo (.txt)
+                </a>
             </div>
             <script>
                 document.getElementById('fechar_painel_btn').onclick = function() {{
@@ -132,15 +138,6 @@ def _render_painel_impressao_persistente():
             </script>
             """,
             unsafe_allow_html=True,
-        )
-
-        # ✅ Key exclusiva evita erro
-        st.download_button(
-            label="⬇️ Baixar arquivo (.txt)",
-            data=texto_para_imprimir,
-            file_name=f"pedido_the_rua_{ts}.txt",
-            mime="text/plain",
-            key=f"baixar_{ts}"
         )
 
     try:
@@ -290,7 +287,7 @@ def fechar_caixa():
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(rel)
     imprimir_texto(rel, titulo="Fechamento THE RUA")
-    return rel, caminho
+    return rel, nome  # Retorne nome em vez de caminho para file_name
 
 # -------------------------------
 # Interface Principal
@@ -320,11 +317,13 @@ else:
     st.sidebar.info(f"💵 Valor inicial: R$ {caixa['valor_inicial']:.2f}")
 
     if st.sidebar.button("🔒 Fechar Caixa"):
-        rel, caminho = fechar_caixa()
+        rel, file_name = fechar_caixa()
         st.success("Caixa fechado com sucesso ✅")
         st.text_area("📋 Relatório do Dia", rel, height=300)
-        with open(caminho, "rb") as f:
-            st.download_button("⬇️ Baixar Relatório do Dia", f, file_name=os.path.basename(caminho))
+        st.markdown(
+            f'<a href="data:text/plain;charset=utf-8,{urllib.parse.quote(rel)}" download="{file_name}">⬇️ Baixar Relatório do Dia</a>',
+            unsafe_allow_html=True
+        )
         st.stop()
 
 # Impressão de teste
