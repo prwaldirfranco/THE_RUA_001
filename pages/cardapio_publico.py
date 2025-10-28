@@ -150,6 +150,7 @@ def render_cardapio_publico():
                 comprovante_path = path
         observacoes = st.text_area("Observações (ex: sem alface)")
 
+        # Botão de confirmar pedido
         if st.button("✅ Confirmar Pedido"):
             if not nome or not telefone:
                 st.error("Preencha nome e telefone.")
@@ -178,22 +179,25 @@ def render_cardapio_publico():
                 pedidos.append(pedido)
                 salvar_json(PEDIDOS_FILE, pedidos)
 
+                # ✅ Corrigido — salva o código de rastreio e mantém após rerun
                 st.session_state["ultimo_codigo"] = codigo
                 st.session_state.carrinho = []
                 st.success("🎉 Pedido realizado com sucesso!")
                 st.balloons()
-                st.rerun()
+                time.sleep(1.2)
+                st.experimental_rerun()
 
     # ---------------------------
-    # POP-UP do código de rastreio
+    # POP-UP persistente do código de rastreio (corrigido)
     # ---------------------------
     if "ultimo_codigo" in st.session_state and st.session_state["ultimo_codigo"]:
         with st.container():
             st.markdown("### ✅ Pedido Confirmado!")
             st.info(f"Seu código de rastreio é: **{st.session_state['ultimo_codigo']}**")
+            st.caption("Guarde este código para acompanhar seu pedido.")
             if st.button("🆗 Fechar aviso"):
                 st.session_state["ultimo_codigo"] = ""
-                st.rerun()
+                st.experimental_rerun()
 
 def render_rastreamento():
     st.title("🔎 Rastreio de Pedido")
