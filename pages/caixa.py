@@ -84,7 +84,7 @@ def atualizar_status(pedido_id, novo_status):
 # Impressão direta via RAWBT
 # -------------------------------
 def imprimir_rawbt(texto):
-    """Gera botão de impressão RawBT dentro de cada pedido."""
+    """Botão funcional RawBT que abre corretamente no Android."""
     texto = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     texto_codificado = urllib.parse.quote(texto)
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
@@ -93,25 +93,17 @@ def imprimir_rawbt(texto):
     st.markdown(
         f"""
         <div style='margin-top:6px;margin-bottom:6px;'>
-            <button onclick="(function(){{
-                const ua = navigator.userAgent.toLowerCase();
-                let url = '{url_rawbt}';
-                if(ua.includes('android')) url = '{url_intent}';
-                try {{
-                    const w = window.open(url, '_blank');
-                    if(!w) alert('⚠️ Ative pop-ups para o RawBT funcionar corretamente.');
-                }} catch(e) {{
-                    alert('❌ Erro ao abrir RawBT: '+e.message);
-                }}
-            }})()"
-            style="background:#007bff;color:white;padding:10px 18px;border:none;border-radius:8px;
-                   font-size:16px;cursor:pointer;">
+            <a href="{url_intent}"
+               style="background:#007bff;color:white;padding:10px 18px;
+                      border:none;border-radius:8px;font-size:16px;
+                      text-decoration:none;display:inline-block;">
                 🖨️ Imprimir via RawBT
-            </button>
+            </a>
         </div>
         """,
         unsafe_allow_html=True
     )
+
 
 # -------------------------------
 # Impressão de texto (Windows + RawBT)
