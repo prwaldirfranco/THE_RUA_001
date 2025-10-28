@@ -185,7 +185,7 @@ def render_cardapio_publico():
                 st.success("🎉 Pedido realizado com sucesso!")
                 st.balloons()
                 time.sleep(1.2)
-                st.experimental_rerun()
+                st.rerun()
 
     # ---------------------------
     # POP-UP persistente do código de rastreio (corrigido)
@@ -197,7 +197,7 @@ def render_cardapio_publico():
             st.caption("Guarde este código para acompanhar seu pedido.")
             if st.button("🆗 Fechar aviso"):
                 st.session_state["ultimo_codigo"] = ""
-                st.experimental_rerun()
+                st.rerun()
 
 def render_rastreamento():
     st.title("🔎 Rastreio de Pedido")
