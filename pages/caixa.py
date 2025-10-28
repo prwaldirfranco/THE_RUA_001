@@ -82,10 +82,10 @@ def atualizar_status(pedido_id, novo_status):
     salvar_pedidos(pedidos)
 
 # -------------------------------
-# Painel de Impressão Persistente (corrigido)
+# Painel de Impressão (Android + Windows compatível)
 # -------------------------------
 def _render_painel_impressao_persistente():
-    """Painel RawBT com keys exclusivas — evita erro StreamlitDuplicateElementId"""
+    """Painel compatível com RawBT no Android e download no desktop."""
     if not st.session_state.get("mostrar_painel_impressao"):
         return
 
@@ -95,50 +95,63 @@ def _render_painel_impressao_persistente():
         return
 
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
-    url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
     ts = int(datetime.now().timestamp())
     file_name = f"pedido_the_rua_{ts}.txt"
 
-    with st.container():
-        st.markdown("---")
-        st.markdown("### 🖨️ Painel de Impressão (RawBT / Download)")
+    st.markdown("---")
+    st.markdown("### 🖨️ Painel de Impressão")
 
-        st.markdown(
-            f"""
-            <div style='margin-top:12px;text-align:center;'>
-                <a href="{url_intent}" 
-                   style="background:#007bff;color:white;padding:12px 20px;
-                   border:none;border-radius:8px;font-size:16px;margin-right:8px;text-decoration:none;">
-                    🖨️ Imprimir via RawBT
-                </a>
-                <a href="{url_rawbt}" 
-                   style="background:#28a745;color:white;padding:12px 20px;
-                   border:none;border-radius:8px;font-size:16px;margin-right:8px;text-decoration:none;">
-                    🔁 Alternativo (RawBT Link)
-                </a>
-                <button id="fechar_painel_btn" 
-                    style="background:#6c757d;color:white;padding:12px 20px;
-                    border:none;border-radius:8px;font-size:16px;margin-right:8px;">
-                    ✖️ Fechar painel
-                </button>
-                <a href="data:text/plain;charset=utf-8,{urllib.parse.quote(texto_para_imprimir)}" 
-                   download="{file_name}" 
-                   style="background:#ffc107;color:black;padding:12px 20px;border:none;border-radius:8px;font-size:16px;text-decoration:none;">
-                    ⬇️ Baixar arquivo (.txt)
-                </a>
-            </div>
-            <script>
-                document.getElementById('fechar_painel_btn').onclick = function() {{
+    st.markdown(
+        f"""
+        <div style='margin-top:16px;text-align:center;'>
+            <button id="btn_imprimir_rawbt"
+                style="background:#007bff;color:white;padding:14px 28px;
+                border:none;border-radius:10px;font-size:18px;margin-right:10px;">
+                🖨️ Imprimir via RawBT
+            </button>
+
+            <a href="data:text/plain;charset=utf-8,{urllib.parse.quote(texto_para_imprimir)}"
+                download="{file_name}"
+                style="background:#ffc107;color:black;padding:14px 28px;
+                border:none;border-radius:10px;font-size:18px;text-decoration:none;margin-right:10px;">
+                ⬇️ Baixar (.txt)
+            </a>
+
+            <button id="fechar_painel_btn"
+                style="background:#6c757d;color:white;padding:14px 28px;
+                border:none;border-radius:10px;font-size:18px;">
+                ✖️ Fechar
+            </button>
+        </div>
+
+        <script>
+            // Força abertura fora do iframe para Android
+            document.getElementById("btn_imprimir_rawbt").onclick = function() {{
+                const a = document.createElement("a");
+                a.href = "{url_rawbt}";
+                a.target = "_blank";
+                a.rel = "noopener noreferrer";
+                a.click();
+                // Fecha automaticamente após imprimir
+                setTimeout(() => {{
                     try {{
                         localStorage.setItem("the_rua_fechar_painel_impressao", "1");
                     }} catch(e){{ }}
-                    setTimeout(()=>location.reload(), 200);
-                }};
-            </script>
-            """,
-            unsafe_allow_html=True,
-        )
+                    location.reload();
+                }}, 1500);
+            }};
+
+            document.getElementById('fechar_painel_btn').onclick = function() {{
+                try {{
+                    localStorage.setItem("the_rua_fechar_painel_impressao", "1");
+                }} catch(e){{ }}
+                setTimeout(()=>location.reload(), 200);
+            }};
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
 
     try:
         if st_javascript:
@@ -150,10 +163,7 @@ def _render_painel_impressao_persistente():
     except Exception:
         pass
 
-    if st.button("✖️ Fechar painel de impressão", key=f"close_{ts}"):
-        st.session_state["mostrar_painel_impressao"] = False
-        st.rerun()
-
+# Estado inicial
 if "mostrar_painel_impressao" not in st.session_state:
     st.session_state["mostrar_painel_impressao"] = False
 if "ultimo_texto_impressao" not in st.session_state:
@@ -162,7 +172,7 @@ if "ultimo_texto_impressao" not in st.session_state:
 # -------------------------------
 # Impressão
 # -------------------------------
-def imprimir_texto(texto, titulo="PEDIDO THE RUA", direct=False):
+def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     sistema = platform.system()
     impressora_config = None
 
@@ -175,6 +185,7 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA", direct=False):
         except Exception:
             impressora_config = None
 
+    # Impressão nativa no Windows
     if sistema == "Windows":
         try:
             import win32print, win32ui
@@ -198,20 +209,10 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA", direct=False):
             st.error(f"❌ Erro ao imprimir: {e}")
             return
 
+    # Impressão via RawBT
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
-
-    if direct:
-        texto_codificado = urllib.parse.quote(texto_para_imprimir)
-        url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
-        if st_javascript:
-            st_javascript(f"window.open('{url_intent}', '_blank');")
-            st.success("🖨️ Tentando imprimir diretamente via RawBT...")
-        else:
-            st.markdown(f'<a href="{url_intent}" target="_blank">🖨️ Clique para imprimir diretamente via RawBT</a>', unsafe_allow_html=True)
-    else:
-        st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
-        st.session_state["mostrar_painel_impressao"] = True
-        st.rerun()
+    st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
+    st.session_state["mostrar_painel_impressao"] = True
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -243,6 +244,7 @@ Tipo: {pedido['tipo_pedido']}
     if pedido.get("observacoes"):
         texto += f"Obs: {pedido['observacoes']}\n"
     texto += "\n==============================\n"
+
     imprimir_texto(texto, titulo="Pedido THE RUA")
 
 # -------------------------------
@@ -297,8 +299,8 @@ def fechar_caixa():
     caminho = os.path.join(RELATORIOS_DIR, nome)
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(rel)
-    imprimir_texto(rel, titulo="Fechamento THE RUA", direct=True)
-    return rel, nome  # Retorne nome em vez de caminho para file_name
+    imprimir_texto(rel, titulo="Fechamento THE RUA")
+    return rel, caminho
 
 # -------------------------------
 # Interface Principal
@@ -328,13 +330,11 @@ else:
     st.sidebar.info(f"💵 Valor inicial: R$ {caixa['valor_inicial']:.2f}")
 
     if st.sidebar.button("🔒 Fechar Caixa"):
-        rel, file_name = fechar_caixa()
+        rel, caminho = fechar_caixa()
         st.success("Caixa fechado com sucesso ✅")
         st.text_area("📋 Relatório do Dia", rel, height=300)
-        st.markdown(
-            f'<a href="data:text/plain;charset=utf-8,{urllib.parse.quote(rel)}" download="{file_name}">⬇️ Baixar Relatório do Dia</a>',
-            unsafe_allow_html=True
-        )
+        with open(caminho, "rb") as f:
+            st.download_button("⬇️ Baixar Relatório do Dia", f, file_name=os.path.basename(caminho))
         st.stop()
 
 # Impressão de teste
@@ -343,7 +343,7 @@ if st.sidebar.button("🧾 Testar Impressão"):
     testar_texto = "====== TESTE DE IMPRESSÃO ======\n✅ Impressora configurada corretamente.\n=============================="
     imprimir_texto(testar_texto, titulo="Teste de Impressão")
 
-# Renderizar o painel de impressão aqui, acima da lista de pedidos, para maior visibilidade
+# Renderiza painel RawBT se ativo
 _render_painel_impressao_persistente()
 
 # Lista de pedidos
@@ -385,7 +385,8 @@ for pedido in pedidos:
         if pedido["status"] == "Aguardando aceite":
             if st.button("✅ Aceitar Pedido", key=f"aceitar_{pedido['id']}"):
                 atualizar_status(pedido["id"], "Em preparo")
-                st.success("Pedido aceito.")
+                imprimir_pedido(pedido)  # Imprime automaticamente
+                st.success("Pedido aceito e impresso.")
                 st.rerun()
 
         if st.button("🖨️ Imprimir Pedido", key=f"print_{pedido['id']}"):
