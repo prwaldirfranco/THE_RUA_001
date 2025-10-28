@@ -300,7 +300,6 @@ def fechar_caixa():
     caminho = os.path.join(RELATORIOS_DIR, nome)
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(rel)
-    imprimir_texto(rel, titulo="Fechamento THE RUA", direct=True)
     return rel, nome  # Retorne nome em vez de caminho para file_name
 
 # -------------------------------
@@ -338,6 +337,8 @@ else:
             f'<a href="data:text/plain;charset=utf-8,{urllib.parse.quote(rel)}" download="{file_name}">⬇️ Baixar Relatório do Dia</a>',
             unsafe_allow_html=True
         )
+        if st.button("🖨️ Imprimir Fechamento do Caixa"):
+            imprimir_texto(rel, titulo="Fechamento THE RUA", direct=True)
         st.stop()
 
 # Impressão de teste
