@@ -286,6 +286,7 @@ def fechar_caixa():
     caminho = os.path.join(RELATORIOS_DIR, nome)
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(rel)
+    imprimir_texto(rel, titulo="Fechamento THE RUA")
     return rel, nome  # Retorne nome em vez de caminho para file_name
 
 # -------------------------------
@@ -302,43 +303,27 @@ if st.button("🔄 Atualizar informações"):
 st.sidebar.header("🧾 Controle de Caixa")
 caixa = carregar_caixa()
 
-if "just_closed" not in st.session_state:
-    st.session_state["just_closed"] = False
-
-if caixa.get("aberto", False):
+if not caixa.get("aberto", False):
+    with st.sidebar.form("abrir_caixa_form"):
+        valor_inicial = st.number_input("Valor inicial (R$)", min_value=0.0, step=10.0)
+        if st.form_submit_button("🔓 Abrir Caixa"):
+            abrir_caixa(valor_inicial)
+            st.success("Caixa aberto com sucesso!")
+            st.rerun()
+    st.warning("⚠️ O caixa está fechado. Abra o caixa para usar o sistema.")
+    st.stop()
+else:
     st.sidebar.success(f"✅ Caixa aberto em: {caixa['aberto_em']}")
     st.sidebar.info(f"💵 Valor inicial: R$ {caixa['valor_inicial']:.2f}")
 
     if st.sidebar.button("🔒 Fechar Caixa"):
         rel, file_name = fechar_caixa()
-        st.session_state["just_closed"] = True
-        st.session_state["rel_fechamento"] = rel
-        st.session_state["file_name_fechamento"] = file_name
-        st.rerun()
-else:
-    if st.session_state.get("just_closed", False):
-        rel = st.session_state["rel_fechamento"]
-        file_name = st.session_state["file_name_fechamento"]
         st.success("Caixa fechado com sucesso ✅")
         st.text_area("📋 Relatório do Dia", rel, height=300)
         st.markdown(
             f'<a href="data:text/plain;charset=utf-8,{urllib.parse.quote(rel)}" download="{file_name}">⬇️ Baixar Relatório do Dia</a>',
             unsafe_allow_html=True
         )
-        if st.button("🖨️ Imprimir Fechamento do Caixa"):
-            imprimir_texto(rel, titulo="Fechamento THE RUA")
-        if st.button("Continuar"):
-            st.session_state["just_closed"] = False
-            st.rerun()
-        st.stop()
-    else:
-        with st.sidebar.form("abrir_caixa_form"):
-            valor_inicial = st.number_input("Valor inicial (R$)", min_value=0.0, step=10.0)
-            if st.form_submit_button("🔓 Abrir Caixa"):
-                abrir_caixa(valor_inicial)
-                st.success("Caixa aberto com sucesso!")
-                st.rerun()
-        st.warning("⚠️ O caixa está fechado. Abra o caixa para usar o sistema.")
         st.stop()
 
 # Impressão de teste
