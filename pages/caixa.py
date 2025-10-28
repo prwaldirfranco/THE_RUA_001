@@ -38,7 +38,6 @@ if (
 # -------------------------------
 DATA_FILE = "pedidos.json"
 CAIXA_FILE = "caixa.json"
-IMPRESSORAS_FILE = "impressoras.json"
 RELATORIOS_DIR = "relatorios"
 os.makedirs(RELATORIOS_DIR, exist_ok=True)
 
@@ -82,108 +81,52 @@ def atualizar_status(pedido_id, novo_status):
     salvar_pedidos(pedidos)
 
 # -------------------------------
-# Painel de Impressão Persistente (corrigido)
+# Impressão direta via RAWBT
 # -------------------------------
-def _render_painel_impressao_persistente():
-    """Painel RawBT com keys exclusivas — evita erro StreamlitDuplicateElementId"""
-    if not st.session_state.get("mostrar_painel_impressao"):
-        return
-
-    texto_para_imprimir = st.session_state.get("ultimo_texto_impressao", "")
-    if not texto_para_imprimir:
-        st.session_state["mostrar_painel_impressao"] = False
-        return
-
-    texto_codificado = urllib.parse.quote(texto_para_imprimir)
+def imprimir_rawbt(texto):
+    """Gera botão de impressão RawBT dentro de cada pedido."""
+    texto = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
+    texto_codificado = urllib.parse.quote(texto)
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
-    ts = int(datetime.now().timestamp())
-    file_name = f"pedido_the_rua_{ts}.txt"
 
-    with st.container():
-        st.markdown("---")
-        st.markdown("### 🖨️ Painel de Impressão (RawBT / Download)")
-
-        st.markdown(
-            f"""
-            <div style='margin-top:12px;text-align:center;'>
-                <a href="{url_intent}" 
-                   style="background:#007bff;color:white;padding:12px 20px;
-                   border:none;border-radius:8px;font-size:16px;margin-right:8px;text-decoration:none;">
-                    🖨️ Imprimir via RawBT
-                </a>
-                <a href="{url_rawbt}" 
-                   style="background:#28a745;color:white;padding:12px 20px;
-                   border:none;border-radius:8px;font-size:16px;margin-right:8px;text-decoration:none;">
-                    🔁 Alternativo (RawBT Link)
-                </a>
-                <button id="fechar_painel_btn" 
-                    style="background:#6c757d;color:white;padding:12px 20px;
-                    border:none;border-radius:8px;font-size:16px;margin-right:8px;">
-                    ✖️ Fechar painel
-                </button>
-                <a href="data:text/plain;charset=utf-8,{urllib.parse.quote(texto_para_imprimir)}" 
-                   download="{file_name}" 
-                   style="background:#ffc107;color:black;padding:12px 20px;border:none;border-radius:8px;font-size:16px;text-decoration:none;">
-                    ⬇️ Baixar arquivo (.txt)
-                </a>
-            </div>
-            <script>
-                document.getElementById('fechar_painel_btn').onclick = function() {{
-                    try {{
-                        localStorage.setItem("the_rua_fechar_painel_impressao", "1");
-                    }} catch(e){{ }}
-                    setTimeout(()=>location.reload(), 200);
-                }};
-            </script>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    try:
-        if st_javascript:
-            fechar_flag = st_javascript("localStorage.getItem('the_rua_fechar_painel_impressao');")
-            if fechar_flag:
-                st_javascript("localStorage.removeItem('the_rua_fechar_painel_impressao');")
-                st.session_state["mostrar_painel_impressao"] = False
-                st.rerun()
-    except Exception:
-        pass
-
-    if st.button("✖️ Fechar painel de impressão", key=f"close_{ts}"):
-        st.session_state["mostrar_painel_impressao"] = False
-        st.rerun()
-
-if "mostrar_painel_impressao" not in st.session_state:
-    st.session_state["mostrar_painel_impressao"] = False
-if "ultimo_texto_impressao" not in st.session_state:
-    st.session_state["ultimo_texto_impressao"] = ""
+    st.markdown(
+        f"""
+        <div style='margin-top:6px;margin-bottom:6px;'>
+            <button onclick="(function(){{
+                const ua = navigator.userAgent.toLowerCase();
+                let url = '{url_rawbt}';
+                if(ua.includes('android')) url = '{url_intent}';
+                try {{
+                    const w = window.open(url, '_blank');
+                    if(!w) alert('⚠️ Ative pop-ups para o RawBT funcionar corretamente.');
+                }} catch(e) {{
+                    alert('❌ Erro ao abrir RawBT: '+e.message);
+                }}
+            }})()"
+            style="background:#007bff;color:white;padding:10px 18px;border:none;border-radius:8px;
+                   font-size:16px;cursor:pointer;">
+                🖨️ Imprimir via RawBT
+            </button>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # -------------------------------
-# Impressão
+# Impressão de texto (Windows + RawBT)
 # -------------------------------
-def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
+def imprimir_texto(texto, titulo="PEDIDO THE RUA", rawbt=False):
     sistema = platform.system()
-    impressora_config = None
-
-    if os.path.exists(IMPRESSORAS_FILE):
-        try:
-            with open(IMPRESSORAS_FILE, "r", encoding="utf-8") as f:
-                impressoras = json.load(f)
-                if impressoras:
-                    impressora_config = impressoras[0].get("endereco") or impressoras[0].get("nome")
-        except Exception:
-            impressora_config = None
-
-    if sistema == "Windows":
+    if sistema == "Windows" and not rawbt:
         try:
             import win32print, win32ui
-            printer_name = impressora_config or win32print.GetDefaultPrinter()
+            printer_name = win32print.GetDefaultPrinter()
             hDC = win32ui.CreateDC()
             hDC.CreatePrinterDC(printer_name)
             hDC.StartDoc(titulo)
             hDC.StartPage()
-            font = win32ui.CreateFont({"name": "Arial", "height": -18, "weight": 400})
+            font = win32ui.CreateFont({"name": "Arial", "height": -18})
             hDC.SelectObject(font)
             y = 20
             for linha in texto.splitlines():
@@ -192,15 +135,11 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             hDC.EndPage()
             hDC.EndDoc()
             hDC.DeleteDC()
-            st.success(f"🖨️ Impresso na impressora: {printer_name}")
-            return
+            st.success(f"🖨️ Impresso em: {printer_name}")
         except Exception as e:
             st.error(f"❌ Erro ao imprimir: {e}")
-            return
-
-    texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
-    st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
-    st.session_state["mostrar_painel_impressao"] = True
+    else:
+        imprimir_rawbt(texto)
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -232,7 +171,8 @@ Tipo: {pedido['tipo_pedido']}
     if pedido.get("observacoes"):
         texto += f"Obs: {pedido['observacoes']}\n"
     texto += "\n==============================\n"
-    imprimir_texto(texto, titulo="Pedido THE RUA")
+
+    imprimir_texto(texto, rawbt=True)
 
 # -------------------------------
 # Caixa e Relatórios
@@ -267,13 +207,6 @@ Por pagamento:
 """
     for pg, valor in por_pagamento.items():
         rel += f"- {pg}: R$ {valor:.2f}\n"
-    dinheiro = por_pagamento.get("Dinheiro", 0)
-    total_final = caixa.get("valor_inicial", 0) + dinheiro
-    rel += f"""
-==============================
-💰 Total em dinheiro físico: R$ {total_final:.2f}
-==============================
-"""
     return rel
 
 def fechar_caixa():
@@ -286,8 +219,10 @@ def fechar_caixa():
     caminho = os.path.join(RELATORIOS_DIR, nome)
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(rel)
-    imprimir_texto(rel, titulo="Fechamento THE RUA")
-    return rel, nome  # Retorne nome em vez de caminho para file_name
+
+    # 🔹 Impressão automática do fechamento
+    imprimir_texto(rel, titulo="Fechamento THE RUA", rawbt=True)
+    return rel, nome
 
 # -------------------------------
 # Interface Principal
@@ -318,69 +253,40 @@ else:
 
     if st.sidebar.button("🔒 Fechar Caixa"):
         rel, file_name = fechar_caixa()
-        st.success("Caixa fechado com sucesso ✅")
+        st.success("Caixa fechado e impresso com sucesso ✅")
         st.text_area("📋 Relatório do Dia", rel, height=300)
-        st.markdown(
-            f'<a href="data:text/plain;charset=utf-8,{urllib.parse.quote(rel)}" download="{file_name}">⬇️ Baixar Relatório do Dia</a>',
-            unsafe_allow_html=True
-        )
+        st.download_button("⬇️ Baixar Relatório", rel, file_name=file_name)
         st.stop()
-
-# Impressão de teste
-st.sidebar.subheader("🖨️ Impressora Local")
-if st.sidebar.button("🧾 Testar Impressão"):
-    testar_texto = "====== TESTE DE IMPRESSÃO ======\n✅ Impressora configurada corretamente.\n=============================="
-    imprimir_texto(testar_texto, titulo="Teste de Impressão")
-
-# Renderizar o painel de impressão aqui, acima da lista de pedidos, para maior visibilidade
-_render_painel_impressao_persistente()
 
 # Lista de pedidos
 pedidos = carregar_pedidos()
 if not pedidos:
-    st.info("Nenhum pedido registrado ainda.")
+    st.info("Nenhum pedido registrado.")
     st.stop()
 
 pedidos = sorted(pedidos, key=lambda x: x.get("data", ""), reverse=True)
-filtro = st.selectbox("Filtrar por status", ["Todos", "Aguardando aceite", "Em preparo", "Pronto", "Em rota de entrega", "Entregue"])
-if filtro != "Todos":
-    pedidos = [p for p in pedidos if p.get("status") == filtro]
-
 for pedido in pedidos:
     st.markdown("---")
-    col1, col2, col3 = st.columns([3, 2, 2])
+    st.subheader(f"📦 Pedido #{pedido['codigo_rastreio']}")
+    st.write(f"👤 {pedido['nome']} — {pedido['telefone']}")
+    st.write(f"💵 Total: R$ {pedido['total']:.2f}")
+    st.write(f"📦 Tipo: {pedido['tipo_pedido']}")
+    if pedido["tipo_pedido"] == "Entrega":
+        st.caption(f"📍 {pedido['endereco']}")
+    st.caption(f"🧾 Pagamento: {pedido['pagamento']}")
+    if pedido.get("observacoes"):
+        st.caption(f"✏️ {pedido['observacoes']}")
 
-    with col1:
-        st.subheader(f"📦 Pedido #{pedido['codigo_rastreio']}")
-        st.write(f"👤 {pedido['nome']} — {pedido['telefone']}")
-        st.write(f"🕒 {pedido['data']}")
-        st.write(f"💵 Total: R$ {pedido['total']:.2f}")
-        st.write(f"📦 Tipo: {pedido['tipo_pedido']}")
-        if pedido["tipo_pedido"] == "Entrega":
-            st.caption(f"📍 {pedido['endereco']}")
-        st.caption(f"🧾 Pagamento: {pedido['pagamento']}")
-        if pedido.get("observacoes"):
-            st.caption(f"✏️ {pedido['observacoes']}")
+    # 🖨️ Botão de imprimir dentro do pedido
+    imprimir_pedido(pedido)
 
-    with col2:
-        st.markdown("#### Itens")
-        for item in pedido.get("produtos", []):
-            st.markdown(f"- {item.get('quantidade', 0)}x {item.get('nome', '')} (R$ {item.get('preco', 0):.2f})")
-
-    with col3:
-        st.markdown("#### Ações")
-        st.write(f"🟢 **{pedido['status']}**")
-
-        if pedido["status"] == "Aguardando aceite":
-            if st.button("✅ Aceitar Pedido", key=f"aceitar_{pedido['id']}"):
-                atualizar_status(pedido["id"], "Em preparo")
-                st.success("Pedido aceito.")
-                st.rerun()
-
-        if st.button("🖨️ Imprimir Pedido", key=f"print_{pedido['id']}"):
-            imprimir_pedido(pedido)
-
-        if st.button("🗑️ Excluir Pedido", key=f"del_{pedido['id']}"):
-            excluir_pedido(pedido['id'])
-            st.warning("Pedido excluído.")
+    if pedido["status"] == "Aguardando aceite":
+        if st.button("✅ Aceitar Pedido", key=f"aceitar_{pedido['id']}"):
+            atualizar_status(pedido["id"], "Em preparo")
+            st.success("Pedido aceito.")
             st.rerun()
+
+    if st.button("🗑️ Excluir Pedido", key=f"del_{pedido['id']}"):
+        excluir_pedido(pedido["id"])
+        st.warning("Pedido excluído.")
+        st.rerun()
