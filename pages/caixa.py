@@ -162,7 +162,7 @@ if "ultimo_texto_impressao" not in st.session_state:
 # -------------------------------
 # Impressão
 # -------------------------------
-def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
+def imprimir_texto(texto, titulo="PEDIDO THE RUA", direct=False):
     sistema = platform.system()
     impressora_config = None
 
@@ -199,8 +199,19 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             return
 
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
-    st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
-    st.session_state["mostrar_painel_impressao"] = True
+
+    if direct:
+        texto_codificado = urllib.parse.quote(texto_para_imprimir)
+        url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
+        if st_javascript:
+            st_javascript(f"window.open('{url_intent}', '_blank');")
+            st.success("🖨️ Tentando imprimir diretamente via RawBT...")
+        else:
+            st.markdown(f'<a href="{url_intent}" target="_blank">🖨️ Clique para imprimir diretamente via RawBT</a>', unsafe_allow_html=True)
+    else:
+        st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
+        st.session_state["mostrar_painel_impressao"] = True
+        st.rerun()
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -286,7 +297,7 @@ def fechar_caixa():
     caminho = os.path.join(RELATORIOS_DIR, nome)
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(rel)
-    imprimir_texto(rel, titulo="Fechamento THE RUA")
+    imprimir_texto(rel, titulo="Fechamento THE RUA", direct=True)
     return rel, nome  # Retorne nome em vez de caminho para file_name
 
 # -------------------------------
