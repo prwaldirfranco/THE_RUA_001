@@ -2,28 +2,27 @@ import streamlit as st
 import json
 import os
 import platform
-import mimetypes
 import urllib.parse
 from datetime import datetime
 
-# try import st_javascript but don't crash if not available
+# -------------------------------
+# Tentativa segura de importar st_javascript
+# -------------------------------
 try:
     from streamlit_javascript import st_javascript
 except Exception:
     st_javascript = None
 
-# ---------------------------------------------------
-# Segurança — exige login e verifica cargo autorizado
-# ---------------------------------------------------
+# -------------------------------
+# Segurança — exige login e verifica cargo
+# -------------------------------
 if "logado" not in st.session_state or not st.session_state["logado"]:
     st.warning("⚠️ Acesso restrito. Faça login para continuar.")
     st.stop()
 
 cargo = st.session_state.get("cargo", "")
 
-# Páginas que exigem permissão específica:
 pagina_atual = os.path.basename(__file__)
-
 if (
     (pagina_atual == "caixa.py" and cargo not in ["caixa", "admin"]) or
     (pagina_atual == "cozinha.py" and cargo not in ["cozinha", "admin"]) or
@@ -34,19 +33,18 @@ if (
     st.error("🚫 Você não tem permissão para acessar esta página.")
     st.stop()
 
-
-# ---------------------------------------------------
-# Caminhos e arquivos de dados
-# ---------------------------------------------------
+# -------------------------------
+# Caminhos e arquivos
+# -------------------------------
 DATA_FILE = "pedidos.json"
 CAIXA_FILE = "caixa.json"
 IMPRESSORAS_FILE = "impressoras.json"
 RELATORIOS_DIR = "relatorios"
 os.makedirs(RELATORIOS_DIR, exist_ok=True)
 
-# ---------------------------------------------------
+# -------------------------------
 # Funções utilitárias
-# ---------------------------------------------------
+# -------------------------------
 def carregar_json(path, default):
     if not os.path.exists(path):
         return default
@@ -83,10 +81,11 @@ def atualizar_status(pedido_id, novo_status):
             p["status"] = novo_status
     salvar_pedidos(pedidos)
 
-# ---------------------------------------------------
-# Painel persistente de impressão
-# ---------------------------------------------------
+# -------------------------------
+# Painel de Impressão Persistente (corrigido)
+# -------------------------------
 def _render_painel_impressao_persistente():
+    """Painel RawBT com keys exclusivas — evita erro StreamlitDuplicateElementId"""
     if not st.session_state.get("mostrar_painel_impressao"):
         return
 
@@ -98,41 +97,50 @@ def _render_painel_impressao_persistente():
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
+    ts = int(datetime.now().timestamp())
 
-    cont = st.container()
-    with cont:
+    with st.container():
         st.markdown("---")
         st.markdown("### 🖨️ Painel de Impressão (RawBT / Download)")
+
         st.markdown(
             f"""
             <div style='margin-top:12px;text-align:center;'>
-                <button onclick="window.open('{url_intent}', '_blank')" style="background:#007bff;color:white;padding:12px 20px;border:none;border-radius:8px;font-size:16px;margin-right:8px;">
+                <button onclick="window.open('{url_intent}', '_blank')" 
+                    style="background:#007bff;color:white;padding:12px 20px;
+                    border:none;border-radius:8px;font-size:16px;margin-right:8px;">
                     🖨️ Imprimir via RawBT
                 </button>
-                <button onclick="window.open('{url_rawbt}', '_blank')" style="background:#28a745;color:white;padding:12px 20px;border:none;border-radius:8px;font-size:16px;margin-right:8px;">
+                <button onclick="window.open('{url_rawbt}', '_blank')" 
+                    style="background:#28a745;color:white;padding:12px 20px;
+                    border:none;border-radius:8px;font-size:16px;margin-right:8px;">
                     🔁 Alternativo (RawBT Link)
                 </button>
-                <button id="fechar_painel_btn" style="background:#6c757d;color:white;padding:12px 20px;border:none;border-radius:8px;font-size:16px;">
+                <button id="fechar_painel_btn" 
+                    style="background:#6c757d;color:white;padding:12px 20px;
+                    border:none;border-radius:8px;font-size:16px;">
                     ✖️ Fechar painel
                 </button>
             </div>
             <script>
-            document.getElementById('fechar_painel_btn').onclick = function() {{
-                try {{
-                    localStorage.setItem("the_rua_fechar_painel_impressao", "1");
-                }} catch(e){{ }}
-                setTimeout(()=>location.reload(), 200);
-            }};
+                document.getElementById('fechar_painel_btn').onclick = function() {{
+                    try {{
+                        localStorage.setItem("the_rua_fechar_painel_impressao", "1");
+                    }} catch(e){{ }}
+                    setTimeout(()=>location.reload(), 200);
+                }};
             </script>
             """,
             unsafe_allow_html=True,
         )
 
+        # ✅ Key exclusiva evita erro
         st.download_button(
             label="⬇️ Baixar arquivo (.txt)",
             data=texto_para_imprimir,
-            file_name="pedido_the_rua.txt",
+            file_name=f"pedido_the_rua_{ts}.txt",
             mime="text/plain",
+            key=f"baixar_{ts}"
         )
 
     try:
@@ -145,19 +153,18 @@ def _render_painel_impressao_persistente():
     except Exception:
         pass
 
-    if st.button("✖️ Fechar painel de impressão (fallback)"):
+    if st.button("✖️ Fechar painel de impressão", key=f"close_{ts}"):
         st.session_state["mostrar_painel_impressao"] = False
-        st.experimental_rerun()
+        st.rerun()
 
 if "mostrar_painel_impressao" not in st.session_state:
     st.session_state["mostrar_painel_impressao"] = False
 if "ultimo_texto_impressao" not in st.session_state:
     st.session_state["ultimo_texto_impressao"] = ""
-_render_painel_impressao_persistente()
 
-# ---------------------------------------------------
+# -------------------------------
 # Impressão
-# ---------------------------------------------------
+# -------------------------------
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     sistema = platform.system()
     impressora_config = None
@@ -197,7 +204,6 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
     st.session_state["mostrar_painel_impressao"] = True
-    _render_painel_impressao_persistente()
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -218,14 +224,10 @@ Tipo: {pedido['tipo_pedido']}
         preco = float(item.get("preco", 0))
         subtotal = preco * qtd
         texto += f"- {qtd}x {nome} R$ {subtotal:.2f}\n"
-        removidos = item.get("removidos", [])
-        if removidos:
-            for r in removidos:
-                texto += f"    - sem {r}\n"
-        extras = item.get("extras", [])
-        if extras:
-            for ex in extras:
-                texto += f"    + {ex.get('qtd',1)}x {ex.get('nome')} (+R$ {float(ex.get('preco',0)):.2f})\n"
+        for r in item.get("removidos", []):
+            texto += f"    - sem {r}\n"
+        for ex in item.get("extras", []):
+            texto += f"    + {ex.get('qtd',1)}x {ex.get('nome')} (+R$ {float(ex.get('preco',0)):.2f})\n"
 
     texto += f"\nTotal: R$ {pedido.get('total', 0):.2f}\nPagamento: {pedido.get('pagamento', '')}\n"
     if pedido.get("troco_para"):
@@ -235,9 +237,9 @@ Tipo: {pedido['tipo_pedido']}
     texto += "\n==============================\n"
     imprimir_texto(texto, titulo="Pedido THE RUA")
 
-# ---------------------------------------------------
+# -------------------------------
 # Caixa e Relatórios
-# ---------------------------------------------------
+# -------------------------------
 def abrir_caixa(valor_inicial):
     caixa = {
         "aberto": True,
@@ -290,14 +292,13 @@ def fechar_caixa():
     imprimir_texto(rel, titulo="Fechamento THE RUA")
     return rel, caminho
 
-# ---------------------------------------------------
-# Interface
-# ---------------------------------------------------
+# -------------------------------
+# Interface Principal
+# -------------------------------
 st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
 st.caption("Gerencie pedidos, comprovantes e impressão via RawBT ou Windows.")
 
-# Botão de atualização
 if st.button("🔄 Atualizar informações"):
     st.rerun()
 
@@ -332,7 +333,7 @@ if st.sidebar.button("🧾 Testar Impressão"):
     testar_texto = "====== TESTE DE IMPRESSÃO ======\n✅ Impressora configurada corretamente.\n=============================="
     imprimir_texto(testar_texto, titulo="Teste de Impressão")
 
-# Listagem de pedidos
+# Lista de pedidos
 pedidos = carregar_pedidos()
 if not pedidos:
     st.info("Nenhum pedido registrado ainda.")
@@ -343,7 +344,7 @@ filtro = st.selectbox("Filtrar por status", ["Todos", "Aguardando aceite", "Em p
 if filtro != "Todos":
     pedidos = [p for p in pedidos if p.get("status") == filtro]
 
-for i, pedido in enumerate(pedidos):
+for pedido in pedidos:
     st.markdown("---")
     col1, col2, col3 = st.columns([3, 2, 2])
 
@@ -381,3 +382,6 @@ for i, pedido in enumerate(pedidos):
             excluir_pedido(pedido['id'])
             st.warning("Pedido excluído.")
             st.rerun()
+
+# Renderizar o painel de impressão no final da página para posição consistente
+_render_painel_impressao_persistente()
