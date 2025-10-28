@@ -3,7 +3,6 @@ import json
 import os
 import platform
 import urllib.parse
-import uuid
 from datetime import datetime
 
 # -------------------------------
@@ -95,16 +94,15 @@ def _render_painel_impressao_persistente():
         st.session_state["mostrar_painel_impressao"] = False
         return
 
-    # ID único para este painel (usa uuid para evitar colisão)
-    unique_id = uuid.uuid4().hex
     texto_codificado = urllib.parse.quote(texto_para_imprimir)
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
+    ts = int(datetime.now().timestamp())
 
     with st.container():
         st.markdown("---")
         st.markdown("### 🖨️ Painel de Impressão (RawBT / Download)")
-        # botões RawBT via HTML (abre em nova aba)
+
         st.markdown(
             f"""
             <div style='margin-top:12px;text-align:center;'>
@@ -118,14 +116,14 @@ def _render_painel_impressao_persistente():
                     border:none;border-radius:8px;font-size:16px;margin-right:8px;">
                     🔁 Alternativo (RawBT Link)
                 </button>
-                <button id="fechar_painel_btn_{unique_id}" 
+                <button id="fechar_painel_btn" 
                     style="background:#6c757d;color:white;padding:12px 20px;
                     border:none;border-radius:8px;font-size:16px;">
                     ✖️ Fechar painel
                 </button>
             </div>
             <script>
-                document.getElementById('fechar_painel_btn_{unique_id}').onclick = function() {{
+                document.getElementById('fechar_painel_btn').onclick = function() {{
                     try {{
                         localStorage.setItem("the_rua_fechar_painel_impressao", "1");
                     }} catch(e){{ }}
@@ -136,37 +134,33 @@ def _render_painel_impressao_persistente():
             unsafe_allow_html=True,
         )
 
-        # Download com key única (UUID)
-        filename = f"pedido_the_rua_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{unique_id}.txt"
+        # ✅ Key exclusiva evita erro
         st.download_button(
             label="⬇️ Baixar arquivo (.txt)",
             data=texto_para_imprimir,
-            file_name=filename,
+            file_name=f"pedido_the_rua_{ts}.txt",
             mime="text/plain",
-            key=f"baixar_{unique_id}"
+            key=f"baixar_{ts}"
         )
 
-    # tenta detectar clique no botão JS que setou localStorage (se st_javascript disponível)
     try:
         if st_javascript:
             fechar_flag = st_javascript("localStorage.getItem('the_rua_fechar_painel_impressao');")
             if fechar_flag:
                 st_javascript("localStorage.removeItem('the_rua_fechar_painel_impressao');")
                 st.session_state["mostrar_painel_impressao"] = False
-                st.experimental_rerun()
+                st.rerun()
     except Exception:
         pass
 
-    # fallback: botão Streamlit para fechar (com key única)
-    if st.button("✖️ Fechar painel de impressão", key=f"close_{unique_id}"):
+    if st.button("✖️ Fechar painel de impressão", key=f"close_{ts}"):
         st.session_state["mostrar_painel_impressao"] = False
-        st.experimental_rerun()
+        st.rerun()
 
 if "mostrar_painel_impressao" not in st.session_state:
     st.session_state["mostrar_painel_impressao"] = False
 if "ultimo_texto_impressao" not in st.session_state:
     st.session_state["ultimo_texto_impressao"] = ""
-_render_painel_impressao_persistente()
 
 # -------------------------------
 # Impressão
@@ -184,7 +178,6 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
         except Exception:
             impressora_config = None
 
-    # impressão direta no Windows
     if sistema == "Windows":
         try:
             import win32print, win32ui
@@ -208,11 +201,9 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir: {e}")
             return
 
-    # para web/android: guarda o texto em session e abre painel persistente
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
     st.session_state["mostrar_painel_impressao"] = True
-    _render_painel_impressao_persistente()
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -308,11 +299,10 @@ st.set_page_config(page_title="Caixa - THE RUA", layout="wide")
 st.title("💵 Painel do Caixa")
 st.caption("Gerencie pedidos, comprovantes e impressão via RawBT ou Windows.")
 
-# Botão de atualização (único)
-if st.button("🔄 Atualizar informações", key="atualizar_caixa"):
+if st.button("🔄 Atualizar informações"):
     st.rerun()
 
-# Controle de caixa (sidebar)
+# Controle de caixa
 st.sidebar.header("🧾 Controle de Caixa")
 caixa = carregar_caixa()
 
@@ -329,20 +319,22 @@ else:
     st.sidebar.success(f"✅ Caixa aberto em: {caixa['aberto_em']}")
     st.sidebar.info(f"💵 Valor inicial: R$ {caixa['valor_inicial']:.2f}")
 
-    if st.sidebar.button("🔒 Fechar Caixa", key="fechar_caixa_btn"):
+    if st.sidebar.button("🔒 Fechar Caixa"):
         rel, caminho = fechar_caixa()
         st.success("Caixa fechado com sucesso ✅")
         st.text_area("📋 Relatório do Dia", rel, height=300)
         with open(caminho, "rb") as f:
-            # download button com key única
-            st.download_button("⬇️ Baixar Relatório do Dia", f, file_name=os.path.basename(caminho), key=f"baixar_rel_{uuid.uuid4().hex}")
+            st.download_button("⬇️ Baixar Relatório do Dia", f, file_name=os.path.basename(caminho))
         st.stop()
 
 # Impressão de teste
 st.sidebar.subheader("🖨️ Impressora Local")
-if st.sidebar.button("🧾 Testar Impressão", key="teste_imp"):
+if st.sidebar.button("🧾 Testar Impressão"):
     testar_texto = "====== TESTE DE IMPRESSÃO ======\n✅ Impressora configurada corretamente.\n=============================="
     imprimir_texto(testar_texto, titulo="Teste de Impressão")
+
+# Renderizar o painel de impressão aqui, acima da lista de pedidos, para maior visibilidade
+_render_painel_impressao_persistente()
 
 # Lista de pedidos
 pedidos = carregar_pedidos()
@@ -351,7 +343,7 @@ if not pedidos:
     st.stop()
 
 pedidos = sorted(pedidos, key=lambda x: x.get("data", ""), reverse=True)
-filtro = st.selectbox("Filtrar por status", ["Todos", "Aguardando aceite", "Em preparo", "Pronto", "Em rota de entrega", "Entregue"], key="filtro_status")
+filtro = st.selectbox("Filtrar por status", ["Todos", "Aguardando aceite", "Em preparo", "Pronto", "Em rota de entrega", "Entregue"])
 if filtro != "Todos":
     pedidos = [p for p in pedidos if p.get("status") == filtro]
 
@@ -375,12 +367,6 @@ for pedido in pedidos:
         st.markdown("#### Itens")
         for item in pedido.get("produtos", []):
             st.markdown(f"- {item.get('quantidade', 0)}x {item.get('nome', '')} (R$ {item.get('preco', 0):.2f})")
-            # mostra removidos/extras (se existirem)
-            if item.get("removidos"):
-                st.caption("  - Sem: " + ", ".join(item.get("removidos")))
-            if item.get("extras"):
-                for ex in item.get("extras"):
-                    st.caption(f"  + {ex.get('qtd',1)}x {ex.get('nome')} (+R$ {ex.get('preco',0):.2f})")
 
     with col3:
         st.markdown("#### Ações")
