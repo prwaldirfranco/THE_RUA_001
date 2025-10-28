@@ -162,7 +162,7 @@ if "ultimo_texto_impressao" not in st.session_state:
 # -------------------------------
 # Impressão
 # -------------------------------
-def imprimir_texto(texto, titulo="PEDIDO THE RUA", direct=False):
+def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     sistema = platform.system()
     impressora_config = None
 
@@ -199,22 +199,8 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA", direct=False):
             return
 
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
-
-    if direct:
-        texto_codificado = urllib.parse.quote(texto_para_imprimir)
-        url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
-        st.markdown(
-            f"""
-            <script>
-                window.open('{url_intent}', '_blank');
-            </script>
-            """,
-            unsafe_allow_html=True
-        )
-        st.success("🖨️ Tentando imprimir diretamente via RawBT...")
-    else:
-        st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
-        st.session_state["mostrar_painel_impressao"] = True
+    st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
+    st.session_state["mostrar_painel_impressao"] = True
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -316,21 +302,23 @@ if st.button("🔄 Atualizar informações"):
 st.sidebar.header("🧾 Controle de Caixa")
 caixa = carregar_caixa()
 
-if not caixa.get("aberto", False):
-    with st.sidebar.form("abrir_caixa_form"):
-        valor_inicial = st.number_input("Valor inicial (R$)", min_value=0.0, step=10.0)
-        if st.form_submit_button("🔓 Abrir Caixa"):
-            abrir_caixa(valor_inicial)
-            st.success("Caixa aberto com sucesso!")
-            st.rerun()
-    st.warning("⚠️ O caixa está fechado. Abra o caixa para usar o sistema.")
-    st.stop()
-else:
+if "just_closed" not in st.session_state:
+    st.session_state["just_closed"] = False
+
+if caixa.get("aberto", False):
     st.sidebar.success(f"✅ Caixa aberto em: {caixa['aberto_em']}")
     st.sidebar.info(f"💵 Valor inicial: R$ {caixa['valor_inicial']:.2f}")
 
     if st.sidebar.button("🔒 Fechar Caixa"):
         rel, file_name = fechar_caixa()
+        st.session_state["just_closed"] = True
+        st.session_state["rel_fechamento"] = rel
+        st.session_state["file_name_fechamento"] = file_name
+        st.rerun()
+else:
+    if st.session_state.get("just_closed", False):
+        rel = st.session_state["rel_fechamento"]
+        file_name = st.session_state["file_name_fechamento"]
         st.success("Caixa fechado com sucesso ✅")
         st.text_area("📋 Relatório do Dia", rel, height=300)
         st.markdown(
@@ -339,6 +327,18 @@ else:
         )
         if st.button("🖨️ Imprimir Fechamento do Caixa"):
             imprimir_texto(rel, titulo="Fechamento THE RUA")
+        if st.button("Continuar"):
+            st.session_state["just_closed"] = False
+            st.rerun()
+        st.stop()
+    else:
+        with st.sidebar.form("abrir_caixa_form"):
+            valor_inicial = st.number_input("Valor inicial (R$)", min_value=0.0, step=10.0)
+            if st.form_submit_button("🔓 Abrir Caixa"):
+                abrir_caixa(valor_inicial)
+                st.success("Caixa aberto com sucesso!")
+                st.rerun()
+        st.warning("⚠️ O caixa está fechado. Abra o caixa para usar o sistema.")
         st.stop()
 
 # Impressão de teste
