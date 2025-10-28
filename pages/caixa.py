@@ -82,10 +82,10 @@ def atualizar_status(pedido_id, novo_status):
     salvar_pedidos(pedidos)
 
 # -------------------------------
-# Painel de Impressão Persistente (corrigido e funcional)
+# Painel de Impressão Persistente (corrigido)
 # -------------------------------
 def _render_painel_impressao_persistente():
-    """Renderiza o painel RawBT com keys únicas (sem erro de duplicidade)"""
+    """Painel RawBT com keys exclusivas — evita erro StreamlitDuplicateElementId"""
     if not st.session_state.get("mostrar_painel_impressao"):
         return
 
@@ -98,51 +98,48 @@ def _render_painel_impressao_persistente():
     url_intent = f"intent://print/{texto_codificado}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end"
     url_rawbt = f"rawbt://print?text={texto_codificado}"
     ts = int(datetime.now().timestamp())
+    file_name = f"pedido_the_rua_{ts}.txt"
 
-    st.markdown("---")
-    st.markdown("### 🖨️ Painel de Impressão (RawBT / Download)")
+    with st.container():
+        st.markdown("---")
+        st.markdown("### 🖨️ Painel de Impressão (RawBT / Download)")
 
-    st.markdown(
-        f"""
-        <div style='margin-top:12px;text-align:center;'>
-            <button onclick="window.open('{url_intent}', '_blank')" 
-                style="background:#007bff;color:white;padding:12px 20px;
-                border:none;border-radius:8px;font-size:16px;margin-right:8px;">
-                🖨️ Imprimir via RawBT
-            </button>
-            <button onclick="window.open('{url_rawbt}', '_blank')" 
-                style="background:#28a745;color:white;padding:12px 20px;
-                border:none;border-radius:8px;font-size:16px;margin-right:8px;">
-                🔁 Alternativo (RawBT Link)
-            </button>
-            <button id="fechar_painel_btn" 
-                style="background:#6c757d;color:white;padding:12px 20px;
-                border:none;border-radius:8px;font-size:16px;">
-                ✖️ Fechar painel
-            </button>
-        </div>
-        <script>
-            document.getElementById('fechar_painel_btn').onclick = function() {{
-                try {{
-                    localStorage.setItem("the_rua_fechar_painel_impressao", "1");
-                }} catch(e){{ }}
-                setTimeout(()=>location.reload(), 200);
-            }};
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
+        st.markdown(
+            f"""
+            <div style='margin-top:12px;text-align:center;'>
+                <a href="{url_intent}" 
+                   style="background:#007bff;color:white;padding:12px 20px;
+                   border:none;border-radius:8px;font-size:16px;margin-right:8px;text-decoration:none;">
+                    🖨️ Imprimir via RawBT
+                </a>
+                <a href="{url_rawbt}" 
+                   style="background:#28a745;color:white;padding:12px 20px;
+                   border:none;border-radius:8px;font-size:16px;margin-right:8px;text-decoration:none;">
+                    🔁 Alternativo (RawBT Link)
+                </a>
+                <button id="fechar_painel_btn" 
+                    style="background:#6c757d;color:white;padding:12px 20px;
+                    border:none;border-radius:8px;font-size:16px;margin-right:8px;">
+                    ✖️ Fechar painel
+                </button>
+                <a href="data:text/plain;charset=utf-8,{urllib.parse.quote(texto_para_imprimir)}" 
+                   download="{file_name}" 
+                   style="background:#ffc107;color:black;padding:12px 20px;border:none;border-radius:8px;font-size:16px;text-decoration:none;">
+                    ⬇️ Baixar arquivo (.txt)
+                </a>
+            </div>
+            <script>
+                document.getElementById('fechar_painel_btn').onclick = function() {{
+                    try {{
+                        localStorage.setItem("the_rua_fechar_painel_impressao", "1");
+                    }} catch(e){{ }}
+                    setTimeout(()=>location.reload(), 200);
+                }};
+            </script>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    # Botão de download com key única — evita erro de duplicidade
-    st.download_button(
-        label="⬇️ Baixar arquivo (.txt)",
-        data=texto_para_imprimir,
-        file_name=f"pedido_the_rua_{ts}.txt",
-        mime="text/plain",
-        key=f"baixar_{ts}"
-    )
-
-    # Fechar o painel automaticamente se o usuário clicar em “fechar”
     try:
         if st_javascript:
             fechar_flag = st_javascript("localStorage.getItem('the_rua_fechar_painel_impressao');")
@@ -153,16 +150,17 @@ def _render_painel_impressao_persistente():
     except Exception:
         pass
 
+    if st.button("✖️ Fechar painel de impressão", key=f"close_{ts}"):
+        st.session_state["mostrar_painel_impressao"] = False
+        st.rerun()
 
-# Inicializa os estados de sessão
 if "mostrar_painel_impressao" not in st.session_state:
     st.session_state["mostrar_painel_impressao"] = False
 if "ultimo_texto_impressao" not in st.session_state:
     st.session_state["ultimo_texto_impressao"] = ""
 
-
 # -------------------------------
-# Impressão (versão estável)
+# Impressão
 # -------------------------------
 def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
     sistema = platform.system()
@@ -200,12 +198,9 @@ def imprimir_texto(texto, titulo="PEDIDO THE RUA"):
             st.error(f"❌ Erro ao imprimir: {e}")
             return
 
-    # Impressão Android / RawBT
     texto_para_imprimir = texto.strip().replace("\r\n", "\n").replace("\n\n", "\n")
     st.session_state["ultimo_texto_impressao"] = texto_para_imprimir
     st.session_state["mostrar_painel_impressao"] = True
-    _render_painel_impressao_persistente()
-
 
 def imprimir_pedido(pedido):
     texto = f"""
@@ -238,7 +233,6 @@ Tipo: {pedido['tipo_pedido']}
         texto += f"Obs: {pedido['observacoes']}\n"
     texto += "\n==============================\n"
     imprimir_texto(texto, titulo="Pedido THE RUA")
-
 
 # -------------------------------
 # Caixa e Relatórios
