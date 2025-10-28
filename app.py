@@ -231,10 +231,24 @@ def render_cardapio_publico():
                 salvar_json(PEDIDOS_FILE, pedidos)
                 st.session_state.carrinho = []
                 st.session_state["ultimo_codigo"] = codigo
-                st.success(f"🎉 Pedido realizado! Código: {codigo}")
+                st.success("🎉 Pedido realizado com sucesso!")
                 st.balloons()
                 st.rerun()
 
+    # ---------------------------
+    # POP-UP do código de rastreio (mantém após o rerun)
+    # ---------------------------
+    if "ultimo_codigo" in st.session_state and st.session_state["ultimo_codigo"]:
+        with st.container():
+            st.markdown("### ✅ Pedido Confirmado!")
+            st.info(f"Seu código de rastreio é: **{st.session_state['ultimo_codigo']}**")
+            if st.button("🆗 Fechar aviso"):
+                st.session_state["ultimo_codigo"] = ""
+                st.rerun()
+
+# ----------------------------
+# Rastreio
+# ----------------------------
 def render_rastreamento():
     st.title("🔎 Rastreio de Pedido")
     codigo = st.text_input("Código de rastreio")
