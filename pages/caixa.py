@@ -338,7 +338,7 @@ else:
             unsafe_allow_html=True
         )
         if st.button("🖨️ Imprimir Fechamento do Caixa"):
-            imprimir_texto(rel, titulo="Fechamento THE RUA", direct=True)
+            imprimir_texto(rel, titulo="Fechamento THE RUA")
         st.stop()
 
 # Impressão de teste
