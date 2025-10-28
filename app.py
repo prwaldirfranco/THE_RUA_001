@@ -270,44 +270,49 @@ if not st.session_state["logado"]:
 else:
     cargo = st.session_state.get("cargo", "")
     if cargo == "admin":
-        opcoes = ["Cardápio Público", "Rastreio", "Caixa", "Cozinha", "Painel_entregador", "Relatórios", "Administração"]
+        escolha = st.sidebar.radio("Menu", ["Cardápio Público", "Rastreio", "Caixa", "Cozinha", "Entregador", "Relatórios", "Administração", "Sair"])
     elif cargo == "caixa":
-        opcoes = ["Caixa"]
+        escolha = st.sidebar.radio("Menu", ["Caixa", "Relatórios", "Sair"])
     elif cargo == "cozinha":
-        opcoes = ["Cozinha"]
+        escolha = st.sidebar.radio("Menu", ["Cozinha", "Sair"])
     elif cargo == "entregador":
-        opcoes = ["Painel_entregador"]
+        escolha = st.sidebar.radio("Menu", ["Entregador", "Sair"])
     else:
-        opcoes = ["Cardápio Público", "Rastreio"]
-    escolha = st.sidebar.radio("Menu", opcoes + ["Sair"])
+        escolha = st.sidebar.radio("Menu", ["Cardápio Público", "Rastreio", "Sair"])
 
 # ----------------------------
-# Ações do menu
+# Ações de menu
 # ----------------------------
 if escolha == "Login":
     st.title("🔐 Login")
     usuario = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
+
     if st.button("Entrar"):
         user = validar_login(usuario, senha)
         if user:
+            cargo = user.get("cargo", user["usuario"])
             st.session_state["logado"] = True
             st.session_state["usuario"] = user["usuario"]
             st.session_state["nome"] = user["nome"]
-            st.session_state["cargo"] = user["cargo"]
+            st.session_state["cargo"] = cargo
             salvar_sessao()
-            st.success(f"Bem-vindo(a), {user['nome']}!")
+            st.success(f"Bem-vindo(a), {user['nome']}! ({cargo.upper()})")
             st.rerun()
         else:
             st.error("Usuário/senha inválidos.")
+
 elif escolha == "Sair":
     limpar_sessao()
     st.success("Sessão encerrada.")
     st.rerun()
+
 elif escolha == "Cardápio Público":
     render_cardapio_publico()
+
 elif escolha == "Rastreio":
     render_rastreamento()
+
 else:
     if not st.session_state["logado"]:
         st.warning("⚠️ Acesso restrito.")
@@ -316,7 +321,7 @@ else:
     mapping = {
         "Caixa": "pages/caixa.py",
         "Cozinha": "pages/cozinha.py",
-        "Painel_entregador": "pages/painel_entregador.py",
+        "Entregador": "pages/entregador.py",
         "Relatórios": "pages/relatorios.py",
         "Administração": "pages/cadastro_produtos.py"
     }
@@ -325,13 +330,3 @@ else:
         st.switch_page(target)
     else:
         st.warning("Página não encontrada.")
-
-# ==================================================
-# 🔒 Botão fixo de logout (para todos os cargos)
-# ==================================================
-if st.session_state.get("logado"):
-    st.markdown("---")
-    if st.button("🚪 Sair da conta"):
-        limpar_sessao()
-        st.success("Sessão encerrada.")
-        st.rerun()
